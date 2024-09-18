@@ -1,0 +1,317 @@
+import { submitBid, getBidFormat, getBlurCollection, getListedBlurTokens, getUserTokensFromBlur, getCollectionExecutableBidsFromBlur, getUserBlurBids, cancelBlurBid, getBlurAuthChallenge, getBlurAccessToken, getEvents, getListingFormat, submitListing } from "../apis/blurapi.js";
+import { ethers } from "ethers";
+import ERC20ABI from "../tokens/ERC20ABI.js";
+import ERC721ABI from "../tokens/ERC721ABI.js";
+import 'dotenv/config'
+import logger from "./logger.js";
+
+
+let blurAuthToken;
+const provider = new ethers.JsonRpcProvider(process.env.RPC_PROVIDER);
+const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
+
+async function getBlurTraitBidAmount(collectionData, traitRarityPercentile) {
+    let bidAmount = 0;
+    let collectionBlurData = await getBlurCollection(collectionData.slug);
+    if (collectionBlurData.collection.floorPrice == null || collectionBlurData.collection.floorPrice.amount * 1 <= 0)
+        return;
+    let listedBlurTokens = await getListedBlurTokens(collectionData.slug);
+    if (listedBlurTokens == null || listedBlurTokens.tokens == null || listedBlurTokens.tokens.length == 0)
+        return;
+    let blurExecutableBids = await getCollectionExecutableBidsFromBlur(collectionData.slug);
+    let blurTopBidAmount = 0;
+    let blurTopBidCount = 0;
+    let blurBidderCount = 0
+    if (blurExecutableBids.length > 0) {
+        blurTopBidAmount = blurExecutableBids.sort((a, b) => b.price - a.price)[0].price * 1;
+        blurTopBidCount = blurExecutableBids.sort((a, b) => b.price - a.price)[0].bidCount * 1;
+        blurBidderCount = blurExecutableBids.sort((a, b) => b.price - a.price)[0].bidderCount * 1;
+    }
+    if (blurTopBidAmount == 0)
+        return;
+    bidAmount = blurTopBidAmount;
+    if (traitRarityPercentile.to <= 10) {
+        if (blurTopBidAmount + 0.01 <= collectionData.blur.sevenDayAverageDailyAverageFloorPrice)
+            bidAmount = blurTopBidAmount + 0.01;
+        let tokens = listedBlurTokens.tokens.filter(t => t.rarityRank / collectionData.totalSupply <= (traitRarityPercentile.to / 100) && t.rarityRank / collectionData.totalSupply > (traitRarityPercentile.from / 100) && t.rarityRank != null && t.price.amount <= collectionBlurData.collection.floorPrice.amount * 1.1);
+        if (tokens.length > 0) {
+            logger("WARN", "SKIP BID", `Skipping ${collectionData.slug} because rarity rank listing prices are too low.`);
+            return;
+        }
+    }
+    else if (traitRarityPercentile.to > 10) {
+        // check to see if the bid amount is higher than the 7 day average floor price to protect against price spikes
+        if (bidAmount > collectionData.blur.sevenDayAverageDailyAverageFloorPrice)
+            bidAmount = collectionData.blur.sevenDayAverageDailyAverageFloorPrice.toFixed(2) * 1;
+        // check to see if there are any listings with rarity rank below 10 percentile
+        let below10BidTokens = listedBlurTokens.tokens.filter(t => t.rarityRank / collectionData.totalSupply <= (traitRarityPercentile.to / 100) && t.rarityRank / collectionData.totalSupply > (traitRarityPercentile.from / 100) && t.rarityRank != null && t.price.amount <= bidAmount * 1.1);
+        if (below10BidTokens.length > 0) {
+            logger("WARN", "SKIP BID", `Skipping ${collectionData.slug} because rarity rank listing prices are too low.`);
+            return;
+        }
+        let above10FloorTokens = listedBlurTokens.tokens.filter(t => t.rarityRank / collectionData.totalSupply <= (traitRarityPercentile.to / 100) && t.rarityRank / collectionData.totalSupply > (traitRarityPercentile.from / 100) && t.rarityRank != null && t.price.amount <= (blurTopBidAmount + 0.01) * 1.1);
+        if (above10FloorTokens.length == 0) {
+            if (blurTopBidAmount >= bidAmount && blurTopBidAmount + 0.01 <= collectionData.blur.sevenDayAverageDailyAverageFloorPrice) {
+                bidAmount = blurTopBidAmount + (blurTopBidCount > 4 ? 0.01 : 0);
+                logger("WARN", "INCREASE BID", `Adjusting bid higher for ${collectionData.slug} because no tokens found with rarity rank below 10 percentile.`);
+            }
+        }
+    }
+    return bidAmount.toFixed(2) * 1;
+}
+
+async function getBlurListPrice(contractAddress, collectionData, rarityRank) {
+    let collectionBlurData = await getBlurCollection(contractAddress);
+    var blurListPrice = collectionBlurData.collection.floorPrice.amount * 1;
+    var blurFloorPrice = collectionBlurData.collection.floorPrice.amount * 1;
+    let rarityMultiplier = 1;
+    let rarityRankPercentile = rarityRank / collectionBlurData.collection.totalSupply;
+    if (collectionData?.blur?.sevenDayAverageDailyAverageFloorPrice > 0) {
+        var projectedFloorPrice = collectionData.blur.sevenDayAverageDailyAverageFloorPrice * (1 + (collectionData.blur.sevenDayAverageDailyAverageFloorPricePercentageChange / 100));
+        if (projectedFloorPrice > blurListPrice)
+            blurListPrice = projectedFloorPrice.toFixed(6) * 1;
+        // check to see if average daily listing sales minus offer sales is enought to cover listings at +5% floor price
+        if (collectionData.blur.sevenDayAverageDailyListingSales * (collectionData.blur.sevenDayListingSales / collectionData.blur.sevenDayAcceptedBidSales) > collectionData.blur.sevenDayAverageListingDepthFivePercentAboveFloorPrice) {
+            if (blurListPrice < blurFloorPrice * (1 + 0.005 + .05))
+                blurListPrice = (blurFloorPrice * (1 + 0.005 + .05)).toFixed(6) * 1;
+        }
+        // adjust list price to seven-day median floor price when there is enough listing sales with a sufficient amount of floor price increases
+        if ((collectionData.blur.sevenDayListingSales / collectionData.blur.sevenDayAcceptedBidSales) >= .8 && (collectionData.blur.sevenDayListingSales / collectionData.blur.sevenDayAverageDailyListingSales) * .95 < collectionData.blur.sevenDayFloorPriceIncreases) {
+            if (collectionData.blur.sevenDayMedianDailyAverageFloorPrice > blurFloorPrice)
+                blurListPrice = collectionData.blur.sevenDayMedianDailyAverageFloorPrice;
+        }
+    }
+    let blurExecutableBids = await getCollectionExecutableBidsFromBlur(collectionBlurData.collection.collectionSlug);
+    let blurTopBidAmount = 0;
+    if (blurExecutableBids.length > 0)
+        blurTopBidAmount = blurExecutableBids.sort((a, b) => b.price - a.price)[0].price * 1;
+    if (blurTopBidAmount != null && blurTopBidAmount > blurListPrice)
+        blurListPrice = blurTopBidAmount.toFixed(6) * 1;
+    if (rarityRankPercentile <= .01)
+        rarityMultiplier = 1.28
+    else if (rarityRankPercentile <= .04)
+        rarityMultiplier = 1.10;
+    else if (rarityRankPercentile <= .1 && blurListPrice > blurFloorPrice * 1.03)
+        rarityMultiplier = 1.04;
+    else if (rarityRankPercentile <= .1 && blurListPrice <= blurFloorPrice * 1.03)
+        rarityMultiplier = 1.08;
+    blurListPrice = (blurListPrice * rarityMultiplier).toFixed(6) * 1;
+    let blurTokenListings = await getListedBlurTokens(collectionBlurData.collection.collectionSlug);
+    if (blurTokenListings == null || blurTokenListings.tokens == null || blurTokenListings.tokens.length == 0)
+        return { blurListPrice, rarityMultiplier };
+    let cheapestBlurTokenHigherRarityListing = blurTokenListings.tokens.filter(o => o.rarityRank / collectionBlurData.collection.totalSupply <= rarityRankPercentile && o.price.unit.toLowerCase() == 'eth' && o.isSuspicious == false && o.owner.address.toLowerCase() != process.env.WALLET_ADDRESS.toLowerCase()).sort(
+        (a, b) => a.price.amount - b.price.amount)[0];
+    if (cheapestBlurTokenHigherRarityListing?.price?.amount * 1 > 0 && blurListPrice < cheapestBlurTokenHigherRarityListing?.price?.amount * .7)
+        blurListPrice = cheapestBlurTokenHigherRarityListing.price.amount * .7;
+    if (cheapestBlurTokenHigherRarityListing?.price?.amount > 0 && cheapestBlurTokenHigherRarityListing?.price?.amount <= blurListPrice)
+        blurListPrice = cheapestBlurTokenHigherRarityListing.price.amount * 1;
+    // make a provision for seven-day average floor price rate change, if projected price below cost adjust by the rate change
+    let nextHigherPriceBlurTokenListing = blurTokenListings.tokens.filter(o => o.price.unit.toLowerCase() == 'eth' && o.price.amount >= (blurListPrice * 1).toFixed(4) && o.isSuspicious == false && o.owner.address.toLowerCase() != process.env.WALLET_ADDRESS.toLowerCase()).sort(
+        (a, b) => a.price.amount - b.price.amount)[0];
+    if (nextHigherPriceBlurTokenListing != null) {
+        blurListPrice = nextHigherPriceBlurTokenListing.price.amount * 1;
+        // get the next higher priced token and if the price difference is less than 3% then set the price to the next higher price
+        nextHigherPriceBlurTokenListing = blurTokenListings.tokens.filter(o => o.price.unit.toLowerCase() == 'eth' && o.price.amount > blurListPrice && o.isSuspicious == false && o.owner.address.toLowerCase() != process.env.WALLET_ADDRESS.toLowerCase()).sort(
+            (a, b) => a.price.amount - b.price.amount)[0];
+        if (nextHigherPriceBlurTokenListing != null && (blurListPrice / nextHigherPriceBlurTokenListing.price.amount) < .97)
+            blurListPrice = nextHigherPriceBlurTokenListing.price.amount * 1;
+    }
+    if (blurListPrice > blurFloorPrice)
+        blurListPrice = blurListPrice.toFixed(6) - 0.000001;
+    else if (blurListPrice <= blurFloorPrice)
+        blurListPrice = blurFloorPrice.toFixed(6) * 1;
+    return { blurListPrice, rarityMultiplier };
+}
+
+async function submitBlurListings(contractAddress, tokenId, listPrice) {
+    // check to see if the wallet address is approved for the contract
+    const contract = new ethers.Contract(contractAddress, ERC721ABI, wallet);
+    var isapproved = await contract.isApprovedForAll(process.env.WALLET_ADDRESS, process.env.BLUR_DELEGATE_CONTRACT_ADDRESS);
+    if (!isapproved) {
+        await contract.setApprovalForAll(process.env.BLUR_DELEGATE_CONTRACT_ADDRESS, true);
+        var starttimer = Math.floor(Date.now() / 1000);
+        while (!isapproved) {
+            await sleep(sleepinterval);
+            isapproved = await contract.isApprovedForAll(process.env.WALLET_ADDRESS, process.env.BLUR_DELEGATE_CONTRACT_ADDRESS);
+            if (Math.floor(Date.now() / 1000) > starttimer + 240)
+                return false;
+        }
+    }
+    // create a BLUR listing
+    const today = (new Date((new Date).getTime() + 1600000)).toISOString();
+    let listing = {
+        "price": {
+            "amount": listPrice.toFixed(6),
+            "unit": "ETH"
+        },
+        "tokenId": tokenId,
+        "feeRate": 0,
+        "contractAddress": contractAddress.toLowerCase(),
+        "expirationTime": (new Date((new Date).getTime() + (process.env.LISTING_DURATION_IN_MINUTES * 6e4))).toISOString()
+    };
+    let listingFormat = await getListingFormat(listing, await getBlurAuthToken(), process.env.WALLET_ADDRESS);
+    if (listingFormat.error != null) {
+        if (listingFormat.message == "0.5% minimum royalty for this collection") {
+            listing.feeRate = 50;
+            listingFormat = await getListingFormat(listing, await getBlurAuthToken(), process.env.WALLET_ADDRESS);
+        }
+        else if (listingFormat.message)
+            console.error(listingFormat.message);
+    }
+    if (listingFormat.signatures == null || listingFormat.signatures.length == 0)
+        return false;
+    // adjust nonce to 0, error in the BLUR API
+    listingFormat.signatures[0].signData.value.nonce = 0;
+    // submit the listing to BLUR
+    const listingSubmission = await submitListing(
+        {
+            marketplace: listingFormat.signatures[0].marketplace,
+            marketplaceData: listingFormat.signatures[0].marketplaceData,
+            signature: await wallet.signTypedData(listingFormat.signatures[0].signData.domain, listingFormat.signatures[0].signData.types, listingFormat.signatures[0].signData.value)
+        },
+        await getBlurAuthToken(), process.env.WALLET_ADDRESS);
+    if (listingSubmission?.success == true)
+        return true;
+}
+
+async function getUserTokens() {
+    var userTokens = await getUserTokensFromBlur(process.env.WALLET_ADDRESS, null, true, await getBlurAuthToken(), process.env.WALLET_ADDRESS);
+    return userTokens;
+}
+
+async function getUserBids() {
+    var currentBidsOnBlur = await getUserBlurBids(process.env.WALLET_ADDRESS, "TRAIT", await getBlurAuthToken(), process.env.WALLET_ADDRESS);
+    return currentBidsOnBlur;
+}
+
+async function getBlurAuthToken() {
+    if (blurAuthToken == null) {
+        const authChallenge = await getBlurAuthChallenge(process.env.WALLET_ADDRESS);
+        const signature = await wallet.signMessage(authChallenge.message);
+        authChallenge.signature = signature;
+        const accessToken = await getBlurAccessToken(authChallenge);
+        blurAuthToken = accessToken.accessToken;
+    }
+    return blurAuthToken;
+}
+
+async function getBETHBalance() {
+    const contract = new ethers.Contract("0x0000000000A39bb272e79075ade125fd351887Ac", ERC20ABI, provider);
+    const balance = await contract.balanceOf(process.env.WALLET_ADDRESS);
+    return balance.toString() / 1000000000000000000;
+}
+
+async function removeBlurBidsForNoLongerQualifiedCollections(collections, userBids) {
+    for (let i = 0; i < userBids.length; i++) {
+        let bid = userBids[i];
+        let collection = collections.filter(c => c.contractAddress == bid.contractAddress)[0];
+        if (collection == null) {
+            await cancelBlurBid(bid.contractAddress, { type: bid.criteriaType, value: bid.criteriaValue }, bid.price, await getBlurAuthToken(), process.env.WALLET_ADDRESS);
+        }
+    }
+}
+
+async function submitBlurTraitBids(collectionData, bids, rarityRankPercentile) {
+    let bethBalance = await getBETHBalance();
+    let biddingTraits = collectionData.attributes.filter(a => a.rarityPercentFloor <= rarityRankPercentile.to && a.rarityPercentFloor > rarityRankPercentile.from && a.rarityPercentFloor > 0 && a.value != "" && a.count / collectionData.totalSupply <= .5);
+    if (biddingTraits.length == 0)
+        return;
+    let bidAmount = await getBlurTraitBidAmount(collectionData, rarityRankPercentile);
+    if (bidAmount == null || bidAmount == 0) {
+        // cancel all bids for this collection
+        for (let i = 0; i < biddingTraits.length; i++) {
+            let trait = biddingTraits[i];
+            let traitBids = bids.filter(b => b.criteriaType == "TRAIT" && b.criteriaValue[trait.key] == trait.value);
+            for (let i = 0; i < traitBids.length; i++) {
+                await cancelBlurBid(collectionData.contractAddress, { type: traitBids[i].criteriaType, value: traitBids[i].criteriaValue }, (traitBids[i].price * 1), await getBlurAuthToken(), process.env.WALLET_ADDRESS);
+                logger("WARN", "CANCEL BID", `Cancelling trait bid [${trait.key}:${trait.value}] of ${traitBids[i].price} ETH for ${collectionData.slug} because no valid bid amount generated.`);
+            }
+        }
+        return;
+    }
+    else {
+        // cancle trait bids that are not the current bid amount
+        for (let i = 0; i < biddingTraits.length; i++) {
+            let trait = biddingTraits[i];
+            let traitBids = bids.filter(b => b.criteriaType == "TRAIT" && b.criteriaValue[trait.key] == trait.value && (b.price * 1) != bidAmount);
+            for (let i = 0; i < traitBids.length; i++) {
+                await cancelBlurBid(collectionData.contractAddress, { type: traitBids[i].criteriaType, value: traitBids[i].criteriaValue }, (traitBids[i].price * 1), await getBlurAuthToken(), process.env.WALLET_ADDRESS);
+                logger("WARN", "CANCEL BID", `Cancelling trait bid [${trait.key}:${trait.value}] of ${traitBids[i].price} ETH for ${collectionData.slug} because bid amount has changed {${traitBids[i].price} -> ${bidAmount} ETH}.`);
+            }
+        }
+        // if bid amount is higher that balance then skip bidding
+        if (bidAmount > bethBalance)
+            return;
+    }
+    for (let i = 0; i < biddingTraits.length; i++) {
+        let error;
+        let trait = biddingTraits[i];
+        let currentBid = null;
+        let traitBids = bids.filter(b => b.criteriaType == "TRAIT" && b.criteriaValue[trait.key] == trait.value);
+        if (traitBids.length > 0)
+            currentBid = traitBids.filter(b => b.price == bidAmount)[0];
+        const criteria = { type: "TRAIT", value: { [trait.key]: trait.value } };
+        // determine the maximum number of bids to place
+        let bidAmountMultiplier = 1;
+        if (biddingTraits.length > 100)
+            bidAmountMultiplier = 2;
+        let bidQty = Math.floor(bethBalance / (bidAmount * bidAmountMultiplier));
+        if (bidQty > process.env.MAX_NUMBER_OF_BIDS)
+            bidQty = process.env.MAX_NUMBER_OF_BIDS * 1;
+        if (bidQty == 0)
+            bidQty = 1;
+        if (currentBid == null){
+            error = await createBlurBid(collectionData, criteria, bidAmount, bidQty);
+            if(error == null)
+                logger("INFO", "PLACE BID", `Placing a new trait bid {"${criteria.type}":"${criteria.value}"} of ${bidAmount} ETH for ${collectionData.slug}.`);
+        }
+        else if (currentBid != null) {
+            if ((currentBid.openSize ?? 1) < bidQty){
+                error = await createBlurBid(collectionData, criteria, bidAmount, bidQty - (currentBid.openSize ?? 1));
+                if(error == null)
+                    logger("INFO", "PLACE BID", `Adjusting bid qty by ${bidQty - (currentBid.openSize ?? 1)}  on a trait bid {"${criteria.type}":"${criteria.value}"} of ${bidAmount} ETH for ${collectionData.slug}.`);
+            }
+        }
+        if (error != null)
+            if (error.message == 'Balance over-utilized'){
+                logger("WARN", "STOP BID", `Stopping bid for ${collectionData.slug} because balance is over-utilized.`);
+                break;
+            }
+    }
+}
+
+async function createBlurBid(collectionData, criteria, bidAmount, bidQty = 1) {
+    let bid = {
+        "contractAddress": collectionData.contractAddress,
+        "price": {
+            "unit": "BETH",
+            "amount": `${bidAmount}`
+        },
+        "quantity": bidQty,
+        "expirationTime": (new Date((new Date).getTime() + 8.64e7)).toISOString(),
+        "criteria": criteria
+    }
+    let bidFormat = await getBidFormat(bid, await getBlurAuthToken(), process.env.WALLET_ADDRESS);
+    if (bidFormat == null || bidFormat.success == false || bidFormat.signatures == null || bidFormat.signatures.length == 0)
+        return false;
+    // adjust nonce to 0, error in the BLUR API
+    bidFormat.signatures[0].signData.value.nonce = 0;
+    const bidSubmission = await submitBid(
+        {
+            marketplaceData: bidFormat.signatures[0].marketplaceData,
+            signature: await wallet.signTypedData(bidFormat.signatures[0].signData.domain, bidFormat.signatures[0].signData.types, bidFormat.signatures[0].signData.value)
+        },
+        await getBlurAuthToken(), process.env.WALLET_ADDRESS);
+    if (bidSubmission?.success == true)
+        return true;
+    return false;
+}
+
+async function getTokenListingEvents(contractAddress, tokenId) {
+    let tokenListingEvents = await getEvents(contractAddress, tokenId, false, false, false, true);
+    if (tokenListingEvents == null || tokenListingEvents.activityItems == null)
+        return;
+    return tokenListingEvents.activityItems;
+}
+
+export { getBlurTraitBidAmount, getUserTokens, getBlurListPrice, getUserBids, submitBlurTraitBids, removeBlurBidsForNoLongerQualifiedCollections, getTokenListingEvents, submitBlurListings };
