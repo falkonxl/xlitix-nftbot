@@ -9,7 +9,7 @@ You can run the bot locally with Visual Studio Code and Node.js v20.x or in the 
 
 To start the bot, I suggest to start with a new empty wallet and about 1ETH. A lower balance can be used but it is not optimal. You will also need to add ETH to your pool balance on Blur for the bot to start bidding.
 When you add ETH to your pool balance on Blur, Blur basically converts ETH to BETH. You use BETH to place bids on Blur. Initially, convert .3 ETH to BETH to start the bot, and then increase the amount as you become more familiar with how the bot
-operates.
+operates. The bot doesn't move any funds, so you need to monitor the pool balance and move funds as needed. It is not uncommon for the bot to use up all the funds to buy NFTs. Just wait till you sell your NFT's, then move ETH back to the pool balance.
 
 ## The Setup
 
@@ -36,9 +36,9 @@ OPENSEA_API_KEY=YOUR_OPNESEA_API_KEY
 **RAPID_SHARE_BLURAPI_KEY & RAPID_SHARE_NFTDATAAPI_KEY** - A RapidShare key can be obtained by subscribing to a plan for [RapidShare Unofficial Blur API](https://rapidapi.com/dmitriaa/api/blur-api5) and [RapidShare NFT Data & Analtyics API](https://rapidapi.com/dmitriaa/api/nft-data-analytics-api). 
 The key will likely be the same if you use the same RapidShare account for your subscriptions.
 
-**WALLET_ADDRESS** - Your Ethereum wallet address.
+**WALLET_ADDRESS** - Your Ethereum wallet address. I strongly recommend to create a new wallet address. Do not use your existing wallet addresses. 
 
-**WALLET_PRIVATE_KEY** - Your Ethereum wallet private key for the wallet address above.
+**WALLET_PRIVATE_KEY** - Your Ethereum wallet private key for the wallet address above. This app only uses your private key to sign requests where needed. If you decide to run this app in a hosted environmnet, make sure to protect your private key properly. Private key can be used to gain access to your wallet. Please look through the code, so you understand where and how your private key is used. Protecting your private key is your responsiblity.
 
 **RPC_PROVIDER** - A URL for your choice of RPC provider. I use Infura. You can sign up and create an API key for free. Your url should look like this: https://mainnet.infura.io/v3/{YOUR_API_KEY}
 
