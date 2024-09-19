@@ -78,3 +78,15 @@ Here is a sample launch.json:
     ]
 }
 ```
+
+The initial settings for picking collections to bid are provided. I run those settings and you can check [my trade history](https://blur.io/0x6A9fE486F1A2860ECF40d3f20BB9cC02d9C09E41/history).  You can modify those settings if/when you feel comfortable. The NFT Data and Analytics API provides a wide number of metrics to use, and you can figure out your winning strategy. Below is the snippet of code located in the agents/bidagents.js where the collections are selected for bidding.
+
+```
+// select collections to bid on
+let selectedCollections = collections.filter(c => c.attributesTotalCount > 10 &&
+(c.blur?.thirtyDayAverageDailyAverageFloorPrice / c.blur?.sevenDayAverageDailyAverageFloorPrice) > .75 &&
+(c.blur?.sevenDayAverageDailyListingSales + c.opensea?.sevenDayAverageDailyListingSales) > 2 &&
+c.blur?.sevenDayFloorPriceIncreases > 2 &&
+c.blur?.sevenDayAverageDailyAverageFloorPrice > 0.03 &&
+c.blur?.sevenDayAverageDailyAverageFloorPrice < .5);
+```
