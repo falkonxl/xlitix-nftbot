@@ -1,5 +1,6 @@
 import { ethers } from "ethers";
 import { OpenSeaSDK, Chain } from "opensea-js";
+import logger from "./logger";
 
 // This example provider won't let you make transactions, only read-only calls:
 const provider = new ethers.JsonRpcProvider(process.env.RPC_PROVIDER);
@@ -25,7 +26,7 @@ async function submitOpenSeaListing(contractAddress, tokenId, listPrice) {
         return true;
     }
     catch(err){
-        console.error(err);
+        logger("ERROR", "OPENSEA ERROR", `TOKEN ${contractAddress}:${tokenId} - ${err.message}`);
         return false;
     }
 }
