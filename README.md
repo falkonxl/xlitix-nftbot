@@ -54,3 +54,27 @@ when a seller is accepting a bid.
 **LISTING_DURATION_IN_MINUTES** - Defaults to 20. Set the number of minutes for the duration of the listings. The bot will re-list your tokens automatically.
 
 **LISTING_MAX_OVERLAP_PERIOD_IN_MINUTES** - Defaults to 2. Set the number of minutes before the listing expiration when the bot should relist the token.
+
+## How to Run The Bot
+
+The fastest way to start running the bot, clone the repository to Visual Studio (VS) Code. Make sure you have Node.js v20.x installed. Run `node -v` in the VS Code terminal window to check your version of Node.js. 
+Run `npm install` in the VS Code terminal window to install dependencies. Then run `node agentbot.js` to start the bot.
+
+Here is a sample launch.json:
+
+```
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch Program",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "program": "${workspaceFolder}\\agentbot.js"
+        }
+    ]
+}
+```
