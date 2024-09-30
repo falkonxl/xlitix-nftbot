@@ -1,12 +1,12 @@
 import { runCollectionUpdaterAgent, runCollectionAggregatorAgent } from './agents/collectionagents.js';
-import { runBiddingAgent } from './agents/bidagents.js';
+import { runBlurBiddingAgent } from './agents/blurbidagents.js';
 import { runListingAgent } from './agents/listingagent.js';
 import { CronJob } from 'cron';
 let collections = [];
 let isCollectionUpdatedAgentRunning = false;
 let isCollectionAggregatorAgentRunning = false;
 let isListingAgentRunning = false;
-let isBiddingAgentRunning = false;
+let isBlurBiddingAgentRunning = false;
 
 const runCollectionUpdatedAgentJob = new CronJob('0 * * * *', async () => {
     if (isCollectionUpdatedAgentRunning || isCollectionAggregatorAgentRunning)
@@ -53,19 +53,19 @@ const runListingAgentJob = new CronJob('*/3 * * * *', async () => {
     isListingAgentRunning = false;
 });
 
-const runBiddingAgentJob = new CronJob('* * * * *', async () => {
-    if (isBiddingAgentRunning)
+const runBlurBiddingAgentJob = new CronJob('* * * * *', async () => {
+    if (isBlurBiddingAgentRunning)
         return;
-    isBiddingAgentRunning = true;
+    isBlurBiddingAgentRunning = true;
     try {
         if(collections.length == 0)
             return;
-        await runBiddingAgent(collections);
+        await runBlurBiddingAgent(collections);
     }
     catch (err) {
         console.error(err);
     }
-    isBiddingAgentRunning = false;
+    isBlurBiddingAgentRunning = false;
 });
 
 
@@ -77,7 +77,7 @@ async function main() {
     runCollectionUpdatedAgentJob.start();
     runCollectionAggregatorAgentJob.start();
     runListingAgentJob.start();
-    runBiddingAgentJob.start();
+    runBlurBiddingAgentJob.start();
 }
 
 main();
