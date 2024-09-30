@@ -1,5 +1,5 @@
 import { getUserTokens, getTokenListingEvents, getBlurListPrice, submitBlurListings } from "../helpers/blur.js";
-import { submitOpenSeaListing } from '../helpers/opensea.js';
+import { submitOpenSeaListing } from '../apis/openseaapi.js';
 import logger from "../helpers/logger.js";
 import 'dotenv/config'
 

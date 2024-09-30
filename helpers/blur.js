@@ -11,17 +11,26 @@ const provider = new ethers.JsonRpcProvider(process.env.RPC_PROVIDER);
 const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
 
 async function getBlurTraitBidAmount(collectionData, traitRarityPercentile) {
+    if (collectionData.blur?.rankingPercentile?.zeroToTen?.thirtyDayAcceptedBidSales < 3 && traitRarityPercentile.to <= 10) {
+        logger("WARN", "SKIP BID", `Skipping ${collectionData.slug} because not enough bid sales history in the zero to ten percentile.`);
+        return;
+    }
+    if (collectionData.blur?.rankingPercentile?.tenToFifty?.thirtyDayAcceptedBidSales < 5 && traitRarityPercentile.to > 10) {
+        logger("WARN", "SKIP BID", `Skipping ${collectionData.slug} because not enough bid sales history in the ten to fifty percentile.`);
+        return;
+    }
     let bidAmount = 0;
     let collectionBlurData = await getBlurCollection(collectionData.slug);
     if (collectionBlurData.collection.floorPrice == null || collectionBlurData.collection.floorPrice.amount * 1 <= 0)
         return;
+    let blurFloorPrice = collectionBlurData.collection.floorPrice.amount * 1;
     let listedBlurTokens = await getListedBlurTokens(collectionData.slug);
     if (listedBlurTokens == null || listedBlurTokens.tokens == null || listedBlurTokens.tokens.length == 0)
         return;
     let blurExecutableBids = await getCollectionExecutableBidsFromBlur(collectionData.slug);
     let blurTopBidAmount = 0;
     let blurTopBidCount = 0;
-    let blurBidderCount = 0
+    let blurBidderCount = 0;
     if (blurExecutableBids.length > 0) {
         blurTopBidAmount = blurExecutableBids.sort((a, b) => b.price - a.price)[0].price * 1;
         blurTopBidCount = blurExecutableBids.sort((a, b) => b.price - a.price)[0].bidCount * 1;
@@ -31,11 +40,19 @@ async function getBlurTraitBidAmount(collectionData, traitRarityPercentile) {
         return;
     bidAmount = blurTopBidAmount;
     if (traitRarityPercentile.to <= 10) {
-        if (blurTopBidAmount + 0.01 <= collectionData.blur.sevenDayAverageDailyAverageFloorPrice)
+        if (blurTopBidAmount + 0.01 <= collectionData.blur.sevenDayAverageDailyAverageFloorPrice && blurFloorPrice * collectionData.blur.rankingPercentile.zeroToTen.thirtyDayAverageListingSalePriceToFloorPriceRatio > (blurTopBidAmount + 0.01) * 1.05)
             bidAmount = blurTopBidAmount + 0.01;
         let tokens = listedBlurTokens.tokens.filter(t => t.rarityRank / collectionData.totalSupply <= (traitRarityPercentile.to / 100) && t.rarityRank / collectionData.totalSupply > (traitRarityPercentile.from / 100) && t.rarityRank != null && t.price.amount <= collectionBlurData.collection.floorPrice.amount * 1.1);
-        if (tokens.length > 0) {
-            logger("WARN", "SKIP BID", `Skipping ${collectionData.slug} because rarity rank listing prices are too low.`);
+        //if (tokens.length > 0) {
+        //    logger("WARN", "SKIP BID", `Skipping ${collectionData.slug} because rarity rank listing prices are too low.`);
+        //    return;
+        //}
+        if (bidAmount > (collectionData.blur.rankingPercentile.zeroToTen.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio * blurFloorPrice).toFixed(2))
+            logger("WARN", "BID ALERT", `{0-10} Bid for ${collectionData.slug} is greater than the projected bid amount {${bidAmount} > ${(collectionData.blur.rankingPercentile.zeroToTen.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio * blurFloorPrice).toFixed(2)}}.`);
+        else if (bidAmount < (collectionData.blur.rankingPercentile.zeroToTen.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio * blurFloorPrice).toFixed(2))
+            logger("WARN", "BID ALERT", `{0-10} Bid for ${collectionData.slug} is less than the projected bid amount {${bidAmount} < ${(collectionData.blur.rankingPercentile.zeroToTen.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio * blurFloorPrice).toFixed(2)}}.`);
+        if (bidAmount * 1.05 > collectionData.blur.rankingPercentile.zeroToTen.thirtyDayAverageListingSalePriceToFloorPriceRatio * blurFloorPrice) {
+            logger("WARN", "SKIP BID", `{0-10} Skipping ${collectionData.slug} because bid amount is not profitable based the projected sale price.`);
             return;
         }
     }
@@ -45,16 +62,24 @@ async function getBlurTraitBidAmount(collectionData, traitRarityPercentile) {
             bidAmount = collectionData.blur.sevenDayAverageDailyAverageFloorPrice.toFixed(2) * 1;
         // check to see if there are any listings with rarity rank below 10 percentile
         let below10BidTokens = listedBlurTokens.tokens.filter(t => t.rarityRank / collectionData.totalSupply <= (traitRarityPercentile.to / 100) && t.rarityRank / collectionData.totalSupply > (traitRarityPercentile.from / 100) && t.rarityRank != null && t.price.amount <= bidAmount * 1.1);
-        if (below10BidTokens.length > 0) {
-            logger("WARN", "SKIP BID", `Skipping ${collectionData.slug} because rarity rank listing prices are too low.`);
-            return;
-        }
+        //if (below10BidTokens.length > 0) {
+        //    logger("WARN", "SKIP BID", `Skipping ${collectionData.slug} because rarity rank listing prices are too low.`);
+        //    return;
+        //}        
         let above10FloorTokens = listedBlurTokens.tokens.filter(t => t.rarityRank / collectionData.totalSupply <= (traitRarityPercentile.to / 100) && t.rarityRank / collectionData.totalSupply > (traitRarityPercentile.from / 100) && t.rarityRank != null && t.price.amount <= (blurTopBidAmount + 0.01) * 1.1);
-        if (above10FloorTokens.length == 0) {
-            if (blurTopBidAmount >= bidAmount && blurTopBidAmount + 0.01 <= collectionData.blur.sevenDayAverageDailyAverageFloorPrice) {
+        if (true) {
+            if (blurTopBidAmount >= bidAmount && blurTopBidAmount + 0.01 <= collectionData.blur.sevenDayAverageDailyAverageFloorPrice && blurFloorPrice * collectionData.blur.rankingPercentile.tenToFifty.thirtyDayAverageListingSalePriceToFloorPriceRatio > (blurTopBidAmount + 0.01) * 1.05) {
                 bidAmount = blurTopBidAmount + (blurTopBidCount > 4 ? 0.01 : 0);
-                logger("WARN", "INCREASE BID", `Adjusting bid higher for ${collectionData.slug} because no tokens found with rarity rank below 10 percentile.`);
+                logger("WARN", "INCREASE BID", `{10-50} Adjusting bid higher for ${collectionData.slug} because no tokens found with rarity rank below 10 percentile.`);
             }
+        }
+        if (bidAmount > (collectionData.blur.rankingPercentile.tenToFifty.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio * blurFloorPrice).toFixed(2))
+            logger("WARN", "BID ALERT", `{10-50} Bid for ${collectionData.slug} is greater than the projected bid amount {${bidAmount} > ${(collectionData.blur.rankingPercentile.tenToFifty.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio * blurFloorPrice).toFixed(2)}}.`);
+        else if (bidAmount < (collectionData.blur.rankingPercentile.tenToFifty.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio * blurFloorPrice).toFixed(2))
+            logger("WARN", "BID ALERT", `{10-50} Bid for ${collectionData.slug} is less than the projected bid amount {${bidAmount} < ${(collectionData.blur.rankingPercentile.tenToFifty.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio * blurFloorPrice).toFixed(2)}}.`);
+        if (bidAmount * 1.05 > collectionData.blur.rankingPercentile.tenToFifty.thirtyDayAverageListingSalePriceToFloorPriceRatio * blurFloorPrice) {
+            logger("WARN", "SKIP BID", `{10-50} Skipping ${collectionData.slug} because bid amount is not profitable based the projected sale price.`);
+            return;
         }
     }
     return bidAmount.toFixed(2) * 1;
@@ -70,16 +95,6 @@ async function getBlurListPrice(contractAddress, collectionData, rarityRank) {
         var projectedFloorPrice = collectionData.blur.sevenDayAverageDailyAverageFloorPrice * (1 + (collectionData.blur.sevenDayAverageDailyAverageFloorPricePercentageChange / 100));
         if (projectedFloorPrice > blurListPrice)
             blurListPrice = projectedFloorPrice.toFixed(6) * 1;
-        // check to see if average daily listing sales minus offer sales is enought to cover listings at +5% floor price
-        if (collectionData.blur.sevenDayAverageDailyListingSales * (collectionData.blur.sevenDayListingSales / collectionData.blur.sevenDayAcceptedBidSales) > collectionData.blur.sevenDayAverageListingDepthFivePercentAboveFloorPrice) {
-            if (blurListPrice < blurFloorPrice * (1 + 0.005 + .05))
-                blurListPrice = (blurFloorPrice * (1 + 0.005 + .05)).toFixed(6) * 1;
-        }
-        // adjust list price to seven-day median floor price when there is enough listing sales with a sufficient amount of floor price increases
-        if ((collectionData.blur.sevenDayListingSales / collectionData.blur.sevenDayAcceptedBidSales) >= .8 && (collectionData.blur.sevenDayListingSales / collectionData.blur.sevenDayAverageDailyListingSales) * .95 < collectionData.blur.sevenDayFloorPriceIncreases) {
-            if (collectionData.blur.sevenDayMedianDailyAverageFloorPrice > blurFloorPrice)
-                blurListPrice = collectionData.blur.sevenDayMedianDailyAverageFloorPrice;
-        }
     }
     let blurExecutableBids = await getCollectionExecutableBidsFromBlur(collectionBlurData.collection.collectionSlug);
     let blurTopBidAmount = 0;
@@ -87,31 +102,28 @@ async function getBlurListPrice(contractAddress, collectionData, rarityRank) {
         blurTopBidAmount = blurExecutableBids.sort((a, b) => b.price - a.price)[0].price * 1;
     if (blurTopBidAmount != null && blurTopBidAmount > blurListPrice)
         blurListPrice = blurTopBidAmount.toFixed(6) * 1;
-    if (rarityRankPercentile <= .01)
+    if (rarityRankPercentile <= .01) {
         rarityMultiplier = 1.28
-    else if (rarityRankPercentile <= .04)
-        rarityMultiplier = 1.10;
-    else if (rarityRankPercentile <= .1 && blurListPrice > blurFloorPrice * 1.03)
-        rarityMultiplier = 1.04;
-    else if (rarityRankPercentile <= .1 && blurListPrice <= blurFloorPrice * 1.03)
-        rarityMultiplier = 1.08;
-    blurListPrice = (blurListPrice * rarityMultiplier).toFixed(6) * 1;
+        blurListPrice = (blurListPrice * rarityMultiplier).toFixed(6) * 1;
+    }
+    else if (rarityRankPercentile <= .1)
+        blurListPrice = collectionData.blur.rankingPercentile.zeroToTen.thirtyDayAverageListingSalePriceToFloorPriceRatio * blurListPrice;
+    else if (rarityRankPercentile <= .5)
+        blurListPrice = collectionData.blur.rankingPercentile.tenToFifty.thirtyDayAverageListingSalePriceToFloorPriceRatio * blurListPrice;
     let blurTokenListings = await getListedBlurTokens(collectionBlurData.collection.collectionSlug);
     if (blurTokenListings == null || blurTokenListings.tokens == null || blurTokenListings.tokens.length == 0)
         return { blurListPrice, rarityMultiplier };
+    // a safeguard to prevent listing high rarity tokens at a lower price
     let cheapestBlurTokenHigherRarityListing = blurTokenListings.tokens.filter(o => o.rarityRank / collectionBlurData.collection.totalSupply <= rarityRankPercentile && o.price.unit.toLowerCase() == 'eth' && o.isSuspicious == false && o.owner.address.toLowerCase() != process.env.WALLET_ADDRESS.toLowerCase()).sort(
         (a, b) => a.price.amount - b.price.amount)[0];
     if (cheapestBlurTokenHigherRarityListing?.price?.amount * 1 > 0 && blurListPrice < cheapestBlurTokenHigherRarityListing?.price?.amount * .7)
         blurListPrice = cheapestBlurTokenHigherRarityListing.price.amount * .7;
-    if (cheapestBlurTokenHigherRarityListing?.price?.amount > 0 && cheapestBlurTokenHigherRarityListing?.price?.amount <= blurListPrice)
-        blurListPrice = cheapestBlurTokenHigherRarityListing.price.amount * 1;
-    // make a provision for seven-day average floor price rate change, if projected price below cost adjust by the rate change
-    let nextHigherPriceBlurTokenListing = blurTokenListings.tokens.filter(o => o.price.unit.toLowerCase() == 'eth' && o.price.amount >= (blurListPrice * 1).toFixed(4) && o.isSuspicious == false && o.owner.address.toLowerCase() != process.env.WALLET_ADDRESS.toLowerCase()).sort(
+    let nextHigherPriceBlurTokenListing = blurTokenListings.tokens.filter(o => o.price.unit.toLowerCase() == 'eth' && o.price.amount * 1 >= blurListPrice.toFixed(6) * 1 && o.isSuspicious == false && o.owner.address.toLowerCase() != process.env.WALLET_ADDRESS.toLowerCase()).sort(
         (a, b) => a.price.amount - b.price.amount)[0];
     if (nextHigherPriceBlurTokenListing != null) {
         blurListPrice = nextHigherPriceBlurTokenListing.price.amount * 1;
         // get the next higher priced token and if the price difference is less than 3% then set the price to the next higher price
-        nextHigherPriceBlurTokenListing = blurTokenListings.tokens.filter(o => o.price.unit.toLowerCase() == 'eth' && o.price.amount > blurListPrice && o.isSuspicious == false && o.owner.address.toLowerCase() != process.env.WALLET_ADDRESS.toLowerCase()).sort(
+        nextHigherPriceBlurTokenListing = blurTokenListings.tokens.filter(o => o.price.unit.toLowerCase() == 'eth' && o.price.amount * 1 > blurListPrice.toFixed(6) * 1 && o.isSuspicious == false && o.owner.address.toLowerCase() != process.env.WALLET_ADDRESS.toLowerCase()).sort(
             (a, b) => a.price.amount - b.price.amount)[0];
         if (nextHigherPriceBlurTokenListing != null && (blurListPrice / nextHigherPriceBlurTokenListing.price.amount) < .97)
             blurListPrice = nextHigherPriceBlurTokenListing.price.amount * 1;
@@ -213,9 +225,11 @@ async function removeBlurBidsForNoLongerQualifiedCollections(collections, userBi
 
 async function submitBlurTraitBids(collectionData, bids, rarityRankPercentile) {
     let bethBalance = await getBETHBalance();
-    let biddingTraits = collectionData.attributes.filter(a => a.rarityPercentFloor <= rarityRankPercentile.to && a.rarityPercentFloor > rarityRankPercentile.from && a.rarityPercentFloor > 0 && a.value != "" && a.count / collectionData.totalSupply <= .5);
-    if (biddingTraits.length == 0)
+    let biddingTraits = collectionData.attributes.filter(a => a.rarityPercentFloor <= rarityRankPercentile.to && a.rarityPercentFloor > rarityRankPercentile.from && a.rarityPercentFloor > 0 && a.value != "" && a.count == a.countVerification && a.count / collectionData.totalSupply <= .5);
+    if (biddingTraits.length == 0) {
+        logger("WARN", "SKIP BID", `Skipping bid for ${collectionData.slug} because no valid traits found.`);
         return;
+    }
     let bidAmount = await getBlurTraitBidAmount(collectionData, rarityRankPercentile);
     if (bidAmount == null || bidAmount == 0) {
         // cancel all bids for this collection
@@ -240,8 +254,10 @@ async function submitBlurTraitBids(collectionData, bids, rarityRankPercentile) {
             }
         }
         // if bid amount is higher that balance then skip bidding
-        if (bidAmount > bethBalance)
+        if (bidAmount > bethBalance) {
+            logger("WARN", "SKIP BID", `Skipping bid for ${collectionData.slug} because bid amount is higher than balance {${bidAmount} > ${bethBalance.toFixed(2)}}.`);
             return;
+        }
     }
     for (let i = 0; i < biddingTraits.length; i++) {
         let error;
@@ -260,20 +276,20 @@ async function submitBlurTraitBids(collectionData, bids, rarityRankPercentile) {
             bidQty = process.env.MAX_NUMBER_OF_BIDS * 1;
         if (bidQty == 0)
             bidQty = 1;
-        if (currentBid == null){
+        if (currentBid == null) {
             error = await createBlurBid(collectionData, criteria, bidAmount, bidQty);
-            if(error == null)
+            if (error == null)
                 logger("INFO", "PLACE BID", `Placing a new trait bid {"${criteria.type}":"${criteria.value}"} of ${bidAmount} ETH for ${collectionData.slug}.`);
         }
         else if (currentBid != null) {
-            if ((currentBid.openSize ?? 1) < bidQty){
+            if ((currentBid.openSize ?? 1) < bidQty) {
                 error = await createBlurBid(collectionData, criteria, bidAmount, bidQty - (currentBid.openSize ?? 1));
-                if(error == null)
+                if (error == null)
                     logger("INFO", "PLACE BID", `Adjusting bid qty by ${bidQty - (currentBid.openSize ?? 1)}  on a trait bid {"${criteria.type}":"${criteria.value}"} of ${bidAmount} ETH for ${collectionData.slug}.`);
             }
         }
         if (error != null)
-            if (error.message == 'Balance over-utilized'){
+            if (error.message == 'Balance over-utilized') {
                 logger("WARN", "STOP BID", `Stopping bid for ${collectionData.slug} because balance is over-utilized.`);
                 break;
             }
