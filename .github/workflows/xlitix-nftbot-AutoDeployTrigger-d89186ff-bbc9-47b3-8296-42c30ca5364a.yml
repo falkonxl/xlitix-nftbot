@@ -22,10 +22,10 @@ jobs:
 
     steps:
       - name: Checkout to the branch
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Azure Login
-        uses: azure/login@v1
+        uses: azure/login@v2
         with:
           client-id: ${{ secrets.XLITIXNFTBOT_AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.XLITIXNFTBOT_AZURE_TENANT_ID }}
@@ -41,7 +41,7 @@ jobs:
           registryPassword: ${{ secrets.XLITIXNFTBOT_REGISTRY_PASSWORD }}
           containerAppName: xlitix-nftbot
           resourceGroup: xlitix
-          imageToBuild: ghcr.io/xlitix-nftbot:${{ github.sha }}
+          imageToBuild: ghcr.io/falkonxl/xlitix-nftbot:${{ github.sha }}
           _buildArgumentsKey_: |
             _buildArgumentsValues_
 
