@@ -8,4 +8,3 @@ services:
       dockerfile: ./Dockerfile
     environment:
       NODE_ENV: production
-    command: ["node", "agentbot.js"]
