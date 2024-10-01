@@ -1,0 +1,11 @@
+services:
+  xlitixnftbot:
+    image: falkonxl/xlitixnftbot
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    environment:
+      NODE_ENV: production
+    command: ["node", "agentbot.js"]
