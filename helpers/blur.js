@@ -54,9 +54,8 @@ async function getBlurTraitBidAmount(collectionData, traitRarityPercentile) {
     else if (traitRarityPercentile.to > 10) {
         // check to see if the bid amount is higher than the 7 day average floor price to protect against price spikes
         if (bidAmount > collectionData.blur.sevenDayAverageDailyAverageFloorPrice)
-            bidAmount = collectionData.blur.sevenDayAverageDailyAverageFloorPrice.toFixed(2) * 1;
+            bidAmount = collectionData.blur.sevenDayAverageDailyAverageFloorPrice.toFixed(2) * 1; 
         let projectedAcceptedBidAmount = (collectionData.blur.rankingPercentile.tenToFifty.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio * blurFloorPrice).toFixed(2) * 1;
-        let above10FloorTokens = listedBlurTokens.tokens.filter(t => t.rarityRank / collectionData.totalSupply <= (traitRarityPercentile.to / 100) && t.rarityRank / collectionData.totalSupply > (traitRarityPercentile.from / 100) && t.rarityRank != null && t.price.amount <= blurFloorPrice * collectionData.blur.rankingPercentile.tenToFifty.thirtyDayAverageListingSalePriceToFloorPriceRatio);
         if (blurTopBidAmount >= bidAmount && blurTopBidAmount + 0.01 <= collectionData.blur.sevenDayAverageDailyAverageFloorPrice 
             && blurFloorPrice * collectionData.blur.rankingPercentile.tenToFifty.thirtyDayAverageListingSalePriceToFloorPriceRatio > (blurTopBidAmount + 0.01) * 1.05
             && (blurTopBidAmount + 0.01) <= projectedAcceptedBidAmount) {
@@ -121,7 +120,7 @@ async function getBlurListPrice(contractAddress, collectionData, rarityRank) {
             blurListPrice = nextHigherPriceBlurTokenListing.price.amount * 1;
     }
     if (blurListPrice > blurFloorPrice)
-        blurListPrice = blurListPrice.toFixed(6) - 0.000001;
+        blurListPrice = (blurListPrice  - 0.000001).toFixed(6) * 1;
     else if (blurListPrice <= blurFloorPrice)
         blurListPrice = blurFloorPrice.toFixed(6) * 1;
     return { blurListPrice, rarityMultiplier };

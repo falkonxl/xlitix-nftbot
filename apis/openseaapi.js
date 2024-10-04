@@ -33,7 +33,7 @@ async function submitOpenSeaListing(contractAddress, tokenId, listPrice) {
 
 async function getOpenSeaCollectionStats(slug) {
     try{
-        return await openseaSDK.getCollectionStats(slug);
+        return await openseaSDK.api.getCollectionStats(slug);
     }
     catch(err){
         logger("ERROR", "OPENSEA ERROR", `COLLECTION ${slug} - ${err.message}`);
@@ -44,7 +44,18 @@ async function getOpenSeaCollectionStats(slug) {
 async function getOpenSeaListings(slug)
 {
     try{
-        return await openseaSDK.getAllListings(slug);
+        let next = null;
+        let listings = [];
+        while(true){
+            let response = await openseaSDK.api.getAllListings(slug, 100, next);
+            if(response == null || response.listings == null || response.listings.length == 0)
+                break;
+            listings = listings.concat(response.listings);
+            next = response.next;
+            if(next == null || listings.length < 100)
+                break;
+        }
+        return { listings: listings };
     }
     catch(err){
         logger("ERROR", "OPENSEA ERROR", `COLLECTION ${slug} - ${err.message}`);
@@ -55,7 +66,7 @@ async function getOpenSeaListings(slug)
 async function getOpenSeaCollectionOffers(slug)
 {
     try{
-        return await openseaSDK.getCollectionOffers(slug);
+        return await openseaSDK.api.getCollectionOffers(slug);
     }
     catch(err){
         logger("ERROR", "OPENSEA ERROR", `COLLECTION ${slug} - ${err.message}`);

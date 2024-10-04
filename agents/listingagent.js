@@ -1,5 +1,6 @@
 import { getUserTokens, getTokenListingEvents, getBlurListPrice, submitBlurListings } from "../helpers/blur.js";
 import { submitOpenSeaListing } from '../apis/openseaapi.js';
+import { getOpenSeaListingPrice } from '../helpers/opensea.js';
 import logger from "../helpers/logger.js";
 import 'dotenv/config'
 
@@ -30,11 +31,10 @@ async function runListingAgent(collections) {
         if (token.asks.filter(a => a.marketplace == "OPENSEA").length == 0 ||
             (token.asks.filter(a => a.marketplace == "OPENSEA").length > 0 && tokenListingEvents.filter(e => e.marketplace == "OPENSEA" && e.fromTrader.address.toLowerCase() == process.env.WALLET_ADDRESS.toLowerCase() && new Date(e.createdAt) > new Date(Date.now() - process.env.LISTING_DURATION_IN_MINUTES * 6e4) && new Date(e.createdAt) < new Date(Date.now() - (process.env.LISTING_DURATION_IN_MINUTES - process.env.LISTING_MAX_OVERLAP_PERIOD_IN_MINUTES) * 6e4)).length > 0
                 && tokenListingEvents.filter(e => e.marketplace == "OPENSEA" && e.fromTrader.address.toLowerCase() == process.env.WALLET_ADDRESS.toLowerCase() && new Date(e.createdAt) > new Date(Date.now() - process.env.LISTING_MAX_OVERLAP_PERIOD_IN_MINUTES * 6e4)).length == 0)) {
-            let listingPriceInfo = await getBlurListPrice(token.contractAddress, collectionData, token.rarityRank);
-            if (listingPriceInfo != null && listingPriceInfo.blurListPrice != null) {
-                let adjustedOpenSeaListPrice = (listingPriceInfo.blurListPrice * 1.025).toFixed(6) * 1; // adjust for the OpensSea marketplace fee
-                if (await submitOpenSeaListing(token.contractAddress, token.tokenId, adjustedOpenSeaListPrice))
-                    logger("LOG", "CREATE LISTING [OPENSEA]", `Creating a listing for token ${token.contractAddress}:${token.tokenId} at ${adjustedOpenSeaListPrice.toFixed(6)} ETH`);
+            let listingPriceInfo = await getOpenSeaListingPrice(collectionData, token.rarityRank);
+            if (listingPriceInfo != null && listingPriceInfo.openSeaListingPrice != null) {
+                if (await submitOpenSeaListing(token.contractAddress, token.tokenId, listingPriceInfo.openSeaListingPrice))
+                    logger("LOG", "CREATE LISTING [OPENSEA]", `Creating a listing for token ${token.contractAddress}:${token.tokenId} at ${listingPriceInfo.openSeaListingPrice.toFixed(6)} ETH`);
             }
         }
     }

@@ -70,6 +70,67 @@ async function getOpenSeaTraitBidAmount(collectionData, traitRarityPercentile) {
     return bidAmount.toFixed(4) * 1;
 }
 
+async function getOpenSeaListingPrice(collectionData, rarityRank) {
+    let collectionOpenSeaData = await getOpenSeaCollectionStats(collectionData.slug);
+    if (collectionOpenSeaData?.total?.floor_price == null || collectionOpenSeaData?.total?.floor_price * 1 <= 0)
+        return;
+    let openSeaListingPrice = collectionOpenSeaData?.total?.floor_price * 1;
+    var openSeaFloorPrice = collectionOpenSeaData?.total?.floor_price * 1;
+    let rarityMultiplier = 1;
+    let rarityRankPercentile = rarityRank / collectionData.totalSupply;
+    if (collectionData?.opensea?.sevenDayAverageDailyAverageFloorPrice > 0) {
+        var projectedFloorPrice = collectionData.opensea.sevenDayAverageDailyAverageFloorPrice * (1 + (collectionData.opensea.sevenDayAverageDailyAverageFloorPricePercentageChange / 100));
+        if (projectedFloorPrice > openSeaListingPrice)
+            openSeaListingPrice = projectedFloorPrice.toFixed(6) * 1;
+    }
+    let openseaCollectionOffers = await getOpenSeaCollectionOffers(collectionData.slug);
+    if (openseaCollectionOffers == null || openseaCollectionOffers.offers == null || openseaCollectionOffers.offers.length == 0)
+        return;
+    const openSeaTopOffer = openseaCollectionOffers.offers.filter(o => o.protocol_data.parameters.offer[0].token.toLowerCase() == process.env.WETH_CONTRACT_ADDRESS.toLowerCase() && o.protocol_data.parameters.offerer.toLowerCase() != process.env.WALLET_ADDRESS.toLowerCase()).sort(
+        function (a, b) {
+            return (b.protocol_data.parameters.offer[0].startAmount / b.protocol_data.parameters.consideration[0].startAmount) - (a.protocol_data.parameters.offer[0].startAmount / a.protocol_data.parameters.consideration[0].startAmount);
+        }
+    )[0];
+    if (!openSeaTopOffer)
+        return;
+    let openSeaTopBidAmount = (openSeaTopOffer.protocol_data.parameters.offer[0].startAmount / openSeaTopOffer.protocol_data.parameters.consideration[0].startAmount) / 1e18;
 
+    if (openSeaTopBidAmount != null && openSeaTopBidAmount > openSeaListingPrice)
+        openSeaListingPrice = openSeaTopBidAmount.toFixed(6) * 1;
+    if (rarityRankPercentile <= .01) {
+        rarityMultiplier = 1.28
+        openSeaListingPrice = (openSeaListingPrice * rarityMultiplier).toFixed(6) * 1;
+    }
+    else if (rarityRankPercentile <= .1)
+        openSeaListingPrice = collectionData.opensea.rankingPercentile.oneToTen.thirtyDayAverageListingSalePriceToFloorPriceRatio * openSeaListingPrice;
+    else if (rarityRankPercentile <= .25)
+        openSeaListingPrice = collectionData.opensea.rankingPercentile.tenToTwentyFive.thirtyDayAverageListingSalePriceToFloorPriceRatio * openSeaListingPrice;
+    else if (rarityRankPercentile <= .5)
+        openSeaListingPrice = collectionData.opensea.rankingPercentile.twentyFiveToFifty.thirtyDayAverageListingSalePriceToFloorPriceRatio * openSeaListingPrice;
+    let openSeaListings = await getOpenSeaListings(collectionData.slug);
+    if (openSeaListings == null || openSeaListings.listings == null || openSeaListings.listings.length == 0)
+        return { openSeaListingPrice, rarityMultiplier };
+    let sorted = openSeaListings.listings.filter(l => l.price.current.currency.toLowerCase() == 'eth' && l.protocol_data.parameters.offerer.toLowerCase() != process.env.WALLET_ADDRESS.toLowerCase() && l.protocol_data.parameters.consideration[l.protocol_data.parameters.totalOriginalConsiderationItems - 1].token.toLowerCase() == '0x0000000000000000000000000000000000000000' && ((l.price.current.value / l.protocol_data.parameters.offer[0].startAmount) / 1e18) > openSeaListingPrice).sort(
+        (a, b) =>  ((a.price.current.value / a.protocol_data.parameters.offer[0].startAmount) - (b.price.current.value / b.protocol_data.parameters.offer[0].startAmount))
+    );
+    let nextHigherPriceOpenSeaListing = openSeaListings.listings.filter(l => l.price.current.currency.toLowerCase() == 'eth' && l.protocol_data.parameters.offerer.toLowerCase() != process.env.WALLET_ADDRESS.toLowerCase() && l.protocol_data.parameters.consideration[l.protocol_data.parameters.totalOriginalConsiderationItems - 1].token.toLowerCase() == '0x0000000000000000000000000000000000000000' && ((l.price.current.value / l.protocol_data.parameters.offer[0].startAmount) / 1e18) > openSeaListingPrice).sort(
+        (a, b) =>  ((a.price.current.value / a.protocol_data.parameters.offer[0].startAmount) - (b.price.current.value / b.protocol_data.parameters.offer[0].startAmount))
+    )[0];
+    if (nextHigherPriceOpenSeaListing != null) {
+        openSeaListingPrice = ((nextHigherPriceOpenSeaListing.price.current.value / nextHigherPriceOpenSeaListing.protocol_data.parameters.offer[0].startAmount) / 1e18).toFixed(6) * 1;
+        // get the next higher priced token and if the price difference is less than 3% then set the price to the next higher price
+        nextHigherPriceOpenSeaListing = openSeaListings.listings.filter(l => l.price.current.currency.toLowerCase() == 'eth' && l.protocol_data.parameters.offerer.toLowerCase() != process.env.WALLET_ADDRESS.toLowerCase() && l.protocol_data.parameters.consideration[l.protocol_data.parameters.totalOriginalConsiderationItems - 1].token.toLowerCase() == '0x0000000000000000000000000000000000000000' && ((l.price.current.value / l.protocol_data.parameters.offer[0].startAmount) / 1e18) > openSeaListingPrice).sort(
+            (a, b) =>  ((a.price.current.value / a.protocol_data.parameters.offer[0].startAmount) - (b.price.current.value / b.protocol_data.parameters.offer[0].startAmount))
+        )[0];
+        let nextHigherPriceOpenSeaListingPrice = ((nextHigherPriceOpenSeaListing.price.current.value / nextHigherPriceOpenSeaListing.protocol_data.parameters.offer[0].startAmount) / 1e18).toFixed(6) * 1;
+        if (nextHigherPriceOpenSeaListing != null && openSeaListingPrice / nextHigherPriceOpenSeaListingPrice < .97)
+            openSeaListingPrice = nextHigherPriceOpenSeaListingPrice;
+    }
+    if (openSeaListingPrice > openSeaFloorPrice)
+        openSeaListingPrice = (openSeaListingPrice - 0.000001).toFixed(6) * 1;
+    else if (openSeaListingPrice <= openSeaFloorPrice)
+        openSeaListingPrice = openSeaFloorPrice.toFixed(6) * 1;
+    return { openSeaListingPrice, rarityMultiplier };
+}
 
-export { getOpenSeaTraitBidAmount };
+export { getOpenSeaTraitBidAmount, getOpenSeaListingPrice };
