@@ -78,7 +78,7 @@ async function getOpenSeaListingPrice(collectionData, rarityRank) {
     var openSeaFloorPrice = collectionOpenSeaData?.total?.floor_price * 1;
     let rarityMultiplier = 1;
     let rarityRankPercentile = rarityRank / collectionData.totalSupply;
-    if (collectionData?.opensea?.sevenDayAverageDailyAverageFloorPrice > 0 && collectionData.opensea.sevenDayAverageDailyAverageFloorPrice > openSeaListingPrice)
+    if (collectionData?.opensea?.sevenDayAverageDailyAverageFloorPrice > 0)
         openSeaListingPrice = collectionData.opensea.sevenDayAverageDailyAverageFloorPrice.toFixed(6) * 1;
     let openseaCollectionOffers = await getOpenSeaCollectionOffers(collectionData.slug);
     if (openseaCollectionOffers == null || openseaCollectionOffers.offers == null || openseaCollectionOffers.offers.length == 0)
@@ -104,6 +104,9 @@ async function getOpenSeaListingPrice(collectionData, rarityRank) {
         openSeaListingPrice = collectionData.opensea.rankingPercentile.tenToTwentyFive.thirtyDayAverageListingSalePriceToFloorPriceRatio * openSeaListingPrice;
     else if (rarityRankPercentile <= .5)
         openSeaListingPrice = collectionData.opensea.rankingPercentile.twentyFiveToFifty.thirtyDayAverageListingSalePriceToFloorPriceRatio * openSeaListingPrice;
+    openSeaListingPrice = openSeaListingPrice.toFixed(6) * 1;
+    if(openSeaListingPrice < openSeaFloorPrice)
+        openSeaListingPrice = openSeaFloorPrice.toFixed(6) * 1;
     let openSeaListings = await getOpenSeaListings(collectionData.slug);
     if (openSeaListings == null || openSeaListings.listings == null || openSeaListings.listings.length == 0)
         return { openSeaListingPrice, rarityMultiplier };

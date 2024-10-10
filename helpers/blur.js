@@ -80,7 +80,7 @@ async function getBlurListPrice(contractAddress, collectionData, rarityRank) {
     var blurFloorPrice = collectionBlurData.collection.floorPrice.amount * 1;
     let rarityMultiplier = 1;
     let rarityRankPercentile = rarityRank / collectionBlurData.collection.totalSupply;
-    if (collectionData?.blur?.sevenDayAverageDailyAverageFloorPrice > 0 && collectionData.blur.sevenDayAverageDailyAverageFloorPrice > blurListPrice)
+    if (collectionData?.blur?.sevenDayAverageDailyAverageFloorPrice > 0)
         blurListPrice = collectionData.blur.sevenDayAverageDailyAverageFloorPrice.toFixed(6) * 1;
     let blurExecutableBids = await getCollectionExecutableBidsFromBlur(collectionBlurData.collection.collectionSlug);
     let blurTopBidAmount = 0;
@@ -98,6 +98,9 @@ async function getBlurListPrice(contractAddress, collectionData, rarityRank) {
         blurListPrice = collectionData.blur.rankingPercentile.tenToTwentyFive.thirtyDayAverageListingSalePriceToFloorPriceRatio * blurListPrice;
     else if (rarityRankPercentile <= .5)
         blurListPrice = collectionData.blur.rankingPercentile.twentyFiveToFifty.thirtyDayAverageListingSalePriceToFloorPriceRatio * blurListPrice;
+    blurListPrice = blurListPrice.toFixed(6) * 1;
+    if(blurListPrice < blurFloorPrice)
+        blurListPrice = blurFloorPrice.toFixed(6) * 1;
     let blurTokenListings = await getListedBlurTokens(collectionBlurData.collection.collectionSlug);
     if (blurTokenListings == null || blurTokenListings.tokens == null || blurTokenListings.tokens.length == 0)
         return { blurListPrice, rarityMultiplier };
