@@ -78,11 +78,8 @@ async function getOpenSeaListingPrice(collectionData, rarityRank) {
     var openSeaFloorPrice = collectionOpenSeaData?.total?.floor_price * 1;
     let rarityMultiplier = 1;
     let rarityRankPercentile = rarityRank / collectionData.totalSupply;
-    if (collectionData?.opensea?.sevenDayAverageDailyAverageFloorPrice > 0) {
-        var projectedFloorPrice = collectionData.opensea.sevenDayAverageDailyAverageFloorPrice * (1 + (collectionData.opensea.sevenDayAverageDailyAverageFloorPricePercentageChange / 100));
-        if (projectedFloorPrice > openSeaListingPrice)
-            openSeaListingPrice = projectedFloorPrice.toFixed(6) * 1;
-    }
+    if (collectionData?.opensea?.sevenDayAverageDailyAverageFloorPrice > 0 && collectionData.opensea.sevenDayAverageDailyAverageFloorPrice > openSeaListingPrice)
+        openSeaListingPrice = collectionData.opensea.sevenDayAverageDailyAverageFloorPrice.toFixed(6) * 1;
     let openseaCollectionOffers = await getOpenSeaCollectionOffers(collectionData.slug);
     if (openseaCollectionOffers == null || openseaCollectionOffers.offers == null || openseaCollectionOffers.offers.length == 0)
         return;

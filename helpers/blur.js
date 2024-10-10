@@ -80,11 +80,8 @@ async function getBlurListPrice(contractAddress, collectionData, rarityRank) {
     var blurFloorPrice = collectionBlurData.collection.floorPrice.amount * 1;
     let rarityMultiplier = 1;
     let rarityRankPercentile = rarityRank / collectionBlurData.collection.totalSupply;
-    if (collectionData?.blur?.sevenDayAverageDailyAverageFloorPrice > 0) {
-        var projectedFloorPrice = collectionData.blur.sevenDayAverageDailyAverageFloorPrice * (1 + (collectionData.blur.sevenDayAverageDailyAverageFloorPricePercentageChange / 100));
-        if (projectedFloorPrice > blurListPrice)
-            blurListPrice = projectedFloorPrice.toFixed(6) * 1;
-    }
+    if (collectionData?.blur?.sevenDayAverageDailyAverageFloorPrice > 0 && collectionData.blur.sevenDayAverageDailyAverageFloorPrice > blurListPrice)
+        blurListPrice = collectionData.blur.sevenDayAverageDailyAverageFloorPrice.toFixed(6) * 1;
     let blurExecutableBids = await getCollectionExecutableBidsFromBlur(collectionBlurData.collection.collectionSlug);
     let blurTopBidAmount = 0;
     if (blurExecutableBids.length > 0)
