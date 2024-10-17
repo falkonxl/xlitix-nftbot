@@ -107,8 +107,8 @@ async function getBlurListPrice(contractAddress, collectionData, rarityRank) {
     // a safeguard to prevent listing high rarity tokens at a lower price
     let cheapestBlurTokenHigherRarityListing = blurTokenListings.tokens.filter(o => o.rarityRank / collectionBlurData.collection.totalSupply <= rarityRankPercentile && o.price.unit.toLowerCase() == 'eth' && o.isSuspicious == false && o.owner.address.toLowerCase() != process.env.WALLET_ADDRESS.toLowerCase()).sort(
         (a, b) => a.price.amount - b.price.amount)[0];
-    if (cheapestBlurTokenHigherRarityListing?.price?.amount * 1 > 0 && blurListPrice < cheapestBlurTokenHigherRarityListing?.price?.amount * .7)
-        blurListPrice = cheapestBlurTokenHigherRarityListing.price.amount * .7;
+    if (cheapestBlurTokenHigherRarityListing?.price?.amount * 1 > 0 && blurListPrice < cheapestBlurTokenHigherRarityListing?.price?.amount * .8)
+        blurListPrice = cheapestBlurTokenHigherRarityListing.price.amount * .8;
     let nextHigherPriceBlurTokenListing = blurTokenListings.tokens.filter(o => o.price.unit.toLowerCase() == 'eth' && o.price.amount * 1 >= blurListPrice.toFixed(6) * 1 && o.isSuspicious == false && o.owner.address.toLowerCase() != process.env.WALLET_ADDRESS.toLowerCase()).sort(
         (a, b) => a.price.amount - b.price.amount)[0];
     if (nextHigherPriceBlurTokenListing != null) {
