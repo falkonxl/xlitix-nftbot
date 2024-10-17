@@ -105,6 +105,8 @@ async function getOpenSeaListingPrice(collectionData, rarityRank) {
     else if (rarityRankPercentile <= .5)
         openSeaListingPrice = collectionData.opensea.rankingPercentile.twentyFiveToFifty.thirtyDayAverageListingSalePriceToFloorPriceRatio * openSeaListingPrice;
     openSeaListingPrice = openSeaListingPrice.toFixed(6) * 1;
+    if(openSeaListingPrice == 0)
+        return;
     if(openSeaListingPrice < openSeaFloorPrice)
         openSeaListingPrice = openSeaFloorPrice.toFixed(6) * 1;
     let openSeaListings = await getOpenSeaListings(collectionData.slug);
