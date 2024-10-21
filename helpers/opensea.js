@@ -99,11 +99,17 @@ async function getOpenSeaListingPrice(collectionData, rarityRank) {
         openSeaListingPrice = (openSeaListingPrice * rarityMultiplier).toFixed(6) * 1;
     }
     else if (rarityRankPercentile <= .1)
-        openSeaListingPrice = collectionData.opensea.rankingPercentile.oneToTen.thirtyDayAverageListingSalePriceToFloorPriceRatio * openSeaListingPrice;
+        openSeaListingPrice = (collectionData.opensea.rankingPercentile.oneToTen.thirtyDayAdjustedListingSales < 3 ?
+            collectionData.opensea.rankingPercentile.oneToTen.thirtyDayAverageListingSalePriceToFloorPriceRatio :
+            collectionData.opensea.rankingPercentile.oneToTen.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio) * openSeaListingPrice;
     else if (rarityRankPercentile <= .25)
-        openSeaListingPrice = collectionData.opensea.rankingPercentile.tenToTwentyFive.thirtyDayAverageListingSalePriceToFloorPriceRatio * openSeaListingPrice;
+        openSeaListingPrice =  (collectionData.opensea.rankingPercentile.tenToTwentyFive.thirtyDayAdjustedListingSales < 5 ?
+            collectionData.opensea.rankingPercentile.tenToTwentyFive.thirtyDayAverageListingSalePriceToFloorPriceRatio :
+            collectionData.opensea.rankingPercentile.tenToTwentyFive.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio) * openSeaListingPrice;
     else if (rarityRankPercentile <= .5)
-        openSeaListingPrice = collectionData.opensea.rankingPercentile.twentyFiveToFifty.thirtyDayAverageListingSalePriceToFloorPriceRatio * openSeaListingPrice;
+        openSeaListingPrice = (collectionData.opensea.rankingPercentile.twentyFiveToFifty.thirtyDayAdjustedListingSales < 5 ?
+            collectionData.opensea.rankingPercentile.twentyFiveToFifty.thirtyDayAverageListingSalePriceToFloorPriceRatio :
+            collectionData.opensea.rankingPercentile.twentyFiveToFifty.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio) * openSeaListingPrice;
     openSeaListingPrice = openSeaListingPrice.toFixed(6) * 1;
     if(openSeaListingPrice == 0)
         return;
