@@ -7,6 +7,7 @@ const provider = new ethers.JsonRpcProvider(process.env.RPC_PROVIDER);
 const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const openSeaWaitTime = 300;
 
 const openseaSDK = new OpenSeaSDK(wallet, {
     chain: Chain.Mainnet,
@@ -17,6 +18,7 @@ async function submitOpenSeaListing(contractAddress, tokenId, listPrice) {
     let retryCount = 0;
     while (true) {
         try {
+            await sleep(openSeaWaitTime);
             await openseaSDK.createListing({
                 asset: {
                     tokenId: tokenId,
@@ -43,6 +45,7 @@ async function getOpenSeaCollectionStats(slug) {
     let retryCount = 0;
     while (true) {
         try {
+            await sleep(openSeaWaitTime);
             return await openseaSDK.api.getCollectionStats(slug);
         }
         catch (err) {
@@ -59,6 +62,7 @@ async function getOpenSeaCollection(slug) {
     let retryCount = 0;
     while (true) {
         try {
+            await sleep(openSeaWaitTime);
             return await openseaSDK.api.getCollection(slug);
         }
         catch (err) {
@@ -78,6 +82,7 @@ async function getOpenSeaListings(slug) {
     let retryCount = 0;
     while (true) {
         try {
+            await sleep(openSeaWaitTime);
             let response = await openseaSDK.api.getAllListings(slug, 100, next);
             if (response == null || response.listings == null || response.listings.length == 0)
                 break;
@@ -101,6 +106,7 @@ async function getOpenSeaCollectionOffers(slug) {
     let retryCount = 0;
     while (true) {
         try {
+            await sleep(openSeaWaitTime);
             return await openseaSDK.api.getCollectionOffers(slug);
         }
         catch (err) {
@@ -117,6 +123,7 @@ async function submitOpenSeaOffer(slug, offerPrice, offerQuantity, trait) {
     let retryCount = 0;
     while (true) {
         try {
+            await sleep(openSeaWaitTime);
             await openseaSDK.createCollectionOffer({
                 collectionSlug: slug,
                 accountAddress: process.env.WALLET_ADDRESS,
