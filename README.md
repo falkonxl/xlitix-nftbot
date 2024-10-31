@@ -7,7 +7,7 @@ run the bot.
 
 You can run the bot locally with Visual Studio Code and Node.js v20.x or in the cloud in a Docker container running Node.js v20.x. You can also use this code as a starting point to create your own bot. 
 
-To start the bot, I suggest to start with a new empty wallet and about 1ETH. A lower balance can be used but it is not optimal. You will also need to add ETH to your pool balance on Blur for the bot to start bidding.
+To start the bot, I suggest to start with a new empty wallet and about 1ETH. A lower balance can be used but it is not optimal. Once you have some ETH in your wallet, you will need to add ETH to your pool balance on Blur for the bot to start bidding.
 When you add ETH to your pool balance on Blur, Blur basically converts ETH to BETH. You use BETH to place bids on Blur. Initially, convert .3 ETH to BETH to start the bot, and then increase the amount as you become more familiar with how the bot
 operates. The bot doesn't move any funds, so you need to monitor the pool balance and move funds as needed. It is not uncommon for the bot to use up all the funds to buy NFTs. Just wait till you sell your NFT's, then move ETH back to the pool balance.
 
