@@ -7,7 +7,7 @@ const provider = new ethers.JsonRpcProvider(process.env.RPC_PROVIDER);
 const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-const openSeaWaitTime = 300;
+const openSeaWaitTime = 500;
 
 const openseaSDK = new OpenSeaSDK(wallet, {
     chain: Chain.Mainnet,
