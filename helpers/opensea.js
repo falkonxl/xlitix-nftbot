@@ -29,7 +29,7 @@ async function getOpenSeaTraitBidAmount(collectionData, traitRarityPercentile) {
         return;
     }
     let collection = await getOpenSeaCollection(collectionData.slug);
-    if( collection?.traitOffersEnabled == false) {
+    if (collection?.traitOffersEnabled == false) {
         logger("WARN", "OPENSEA SKIP BID", `Skipping ${collectionData.slug} because trait offers are not enabled.`);
         return;
     }
@@ -71,8 +71,8 @@ async function getOpenSeaTraitBidAmount(collectionData, traitRarityPercentile) {
         if (bidAmount > collectionData.opensea.sevenDayAverageDailyAverageFloorPrice)
             bidAmount = collectionData.opensea.sevenDayAverageDailyAverageFloorPrice.toFixed(4) * 1;
         let floorPriceMultiplier = collectionData.opensea.rankingPercentile.tenToFifty.thirtyDayAdjustedListingSales < 5 ?
-        collectionData.opensea.rankingPercentile.tenToFifty.thirtyDayAverageListingSalePriceToFloorPriceRatio :
-        collectionData.opensea.rankingPercentile.tenToFifty.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio;
+            collectionData.opensea.rankingPercentile.tenToFifty.thirtyDayAverageListingSalePriceToFloorPriceRatio :
+            collectionData.opensea.rankingPercentile.tenToFifty.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio;
         if (bidAmount > (floorPriceMultiplier * openSeaFloorPrice).toFixed(4))
             logger("WARN", "OPENSEA BID ALERT", `{10-50} Bid for ${collectionData.slug} is greater than the projected bid amount {${bidAmount} > ${(floorPriceMultiplier * openSeaFloorPrice).toFixed(4)}}.`);
         else if (bidAmount < (floorPriceMultiplier * openSeaFloorPrice).toFixed(4))
@@ -140,32 +140,35 @@ async function getOpenSeaListingPrice(collectionData, rarityRank) {
             collectionData.opensea.rankingPercentile.oneToTen.thirtyDayAverageListingSalePriceToFloorPriceRatio :
             collectionData.opensea.rankingPercentile.oneToTen.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio) * openSeaListingPrice;
     else if (rarityRankPercentile <= .25)
-        openSeaListingPrice =  (collectionData.opensea.rankingPercentile.tenToTwentyFive.thirtyDayAdjustedListingSales < 5 ?
+        openSeaListingPrice = (collectionData.opensea.rankingPercentile.tenToTwentyFive.thirtyDayAdjustedListingSales < 5 ?
             collectionData.opensea.rankingPercentile.tenToTwentyFive.thirtyDayAverageListingSalePriceToFloorPriceRatio :
             collectionData.opensea.rankingPercentile.tenToTwentyFive.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio) * openSeaListingPrice;
     else if (rarityRankPercentile <= .5)
         openSeaListingPrice = (collectionData.opensea.rankingPercentile.twentyFiveToFifty.thirtyDayAdjustedListingSales < 5 ?
-            collectionData.opensea.rankingPercentile.twentyFiveToFifty.thirtyDayAverageListingSalePriceToFloorPriceRatio :
+            (collectionData.opensea.rankingPercentile.tenToFifty.thirtyDayAdjustedListingSales < 5 ?
+                collectionData.opensea.rankingPercentile.twentyFiveToFifty.thirtyDayAverageListingSalePriceToFloorPriceRatio :
+                collectionData.opensea.rankingPercentile.tenToFifty.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio
+            ) :
             collectionData.opensea.rankingPercentile.twentyFiveToFifty.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio) * openSeaListingPrice;
     openSeaListingPrice = openSeaListingPrice.toFixed(6) * 1;
-    if(openSeaListingPrice == 0)
+    if (openSeaListingPrice == 0)
         return;
-    if(openSeaListingPrice < openSeaFloorPrice)
+    if (openSeaListingPrice < openSeaFloorPrice)
         openSeaListingPrice = openSeaFloorPrice.toFixed(6) * 1;
     let openSeaListings = await getOpenSeaListings(collectionData.slug);
     if (openSeaListings == null || openSeaListings.listings == null || openSeaListings.listings.length == 0)
         return { openSeaListingPrice, rarityMultiplier };
     let sorted = openSeaListings.listings.filter(l => l.price.current.currency.toLowerCase() == 'eth' && l.protocol_data.parameters.offerer.toLowerCase() != process.env.WALLET_ADDRESS.toLowerCase() && l.protocol_data.parameters.consideration[l.protocol_data.parameters.totalOriginalConsiderationItems - 1].token.toLowerCase() == '0x0000000000000000000000000000000000000000' && ((l.price.current.value / l.protocol_data.parameters.offer[0].startAmount) / 1e18) > openSeaListingPrice).sort(
-        (a, b) =>  ((a.price.current.value / a.protocol_data.parameters.offer[0].startAmount) - (b.price.current.value / b.protocol_data.parameters.offer[0].startAmount))
+        (a, b) => ((a.price.current.value / a.protocol_data.parameters.offer[0].startAmount) - (b.price.current.value / b.protocol_data.parameters.offer[0].startAmount))
     );
     let nextHigherPriceOpenSeaListing = openSeaListings.listings.filter(l => l.price.current.currency.toLowerCase() == 'eth' && l.protocol_data.parameters.offerer.toLowerCase() != process.env.WALLET_ADDRESS.toLowerCase() && l.protocol_data.parameters.consideration[l.protocol_data.parameters.totalOriginalConsiderationItems - 1].token.toLowerCase() == '0x0000000000000000000000000000000000000000' && ((l.price.current.value / l.protocol_data.parameters.offer[0].startAmount) / 1e18) > openSeaListingPrice).sort(
-        (a, b) =>  ((a.price.current.value / a.protocol_data.parameters.offer[0].startAmount) - (b.price.current.value / b.protocol_data.parameters.offer[0].startAmount))
+        (a, b) => ((a.price.current.value / a.protocol_data.parameters.offer[0].startAmount) - (b.price.current.value / b.protocol_data.parameters.offer[0].startAmount))
     )[0];
     if (nextHigherPriceOpenSeaListing != null) {
         openSeaListingPrice = ((nextHigherPriceOpenSeaListing.price.current.value / nextHigherPriceOpenSeaListing.protocol_data.parameters.offer[0].startAmount) / 1e18).toFixed(6) * 1;
         // get the next higher priced token and if the price difference is less than 3% then set the price to the next higher price
         nextHigherPriceOpenSeaListing = openSeaListings.listings.filter(l => l.price.current.currency.toLowerCase() == 'eth' && l.protocol_data.parameters.offerer.toLowerCase() != process.env.WALLET_ADDRESS.toLowerCase() && l.protocol_data.parameters.consideration[l.protocol_data.parameters.totalOriginalConsiderationItems - 1].token.toLowerCase() == '0x0000000000000000000000000000000000000000' && ((l.price.current.value / l.protocol_data.parameters.offer[0].startAmount) / 1e18) > openSeaListingPrice).sort(
-            (a, b) =>  ((a.price.current.value / a.protocol_data.parameters.offer[0].startAmount) - (b.price.current.value / b.protocol_data.parameters.offer[0].startAmount))
+            (a, b) => ((a.price.current.value / a.protocol_data.parameters.offer[0].startAmount) - (b.price.current.value / b.protocol_data.parameters.offer[0].startAmount))
         )[0];
         let nextHigherPriceOpenSeaListingPrice = ((nextHigherPriceOpenSeaListing.price.current.value / nextHigherPriceOpenSeaListing.protocol_data.parameters.offer[0].startAmount) / 1e18).toFixed(6) * 1;
         if (nextHigherPriceOpenSeaListing != null && openSeaListingPrice / nextHigherPriceOpenSeaListingPrice < .97)
