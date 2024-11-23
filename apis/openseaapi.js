@@ -7,7 +7,7 @@ const provider = new ethers.JsonRpcProvider(process.env.RPC_PROVIDER);
 const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-const openSeaWaitTime = 500;
+const openSeaWaitTime = 100;
 
 const openseaSDK = new OpenSeaSDK(wallet, {
     chain: Chain.Mainnet,
@@ -34,7 +34,7 @@ async function submitOpenSeaListing(contractAddress, tokenId, listPrice) {
         catch (err) {
             if (retryCount++ > 3)
                 return null;
-            logger("ERROR", "OPENSEA ERROR", `COLLECTION ${slug} - ${err.message}`);
+            logger("ERROR", "OPENSEA ERROR", `COLLECTION ${contractAddress} - ${err.message}`);
             if (err.response?.statusCode == 599)
                 await sleep(err.response.headers['retry-after'] ? err.response.headers['retry-after'] * 1000 : 1500);
         }

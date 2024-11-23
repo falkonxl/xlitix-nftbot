@@ -108,10 +108,15 @@ async function getBlurListPrice(contractAddress, collectionData, rarityRank) {
         blurListPrice = (collectionData.blur.rankingPercentile.tenToTwentyFive.thirtyDayAdjustedListingSales < 5 ?
             collectionData.blur.rankingPercentile.tenToTwentyFive.thirtyDayAverageListingSalePriceToFloorPriceRatio :
             collectionData.blur.rankingPercentile.tenToTwentyFive.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio) * blurListPrice;
-    else if (rarityRankPercentile <= .5)
+    else if (rarityRankPercentile <= .5){
+        if(collectionData.blur.rankingPercentile.twentyFiveToFifty.thirtyDayAdjustedListingSales < 5)
         blurListPrice = (collectionData.blur.rankingPercentile.twentyFiveToFifty.thirtyDayAdjustedListingSales < 5 ?
-            collectionData.blur.rankingPercentile.twentyFiveToFifty.thirtyDayAverageListingSalePriceToFloorPriceRatio :
+            (collectionData.blur.rankingPercentile.tenToFifty.thirtyDayAdjustedListingSales < 5 ? 
+                collectionData.blur.rankingPercentile.twentyFiveToFifty.thirtyDayAverageListingSalePriceToFloorPriceRatio :
+                collectionData.blur.rankingPercentile.tenToFifty.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio
+            ) :
             collectionData.blur.rankingPercentile.twentyFiveToFifty.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio) * blurListPrice;
+        }
     blurListPrice = blurListPrice.toFixed(6) * 1;
     if(blurListPrice < blurFloorPrice)
         blurListPrice = blurFloorPrice.toFixed(6) * 1;
