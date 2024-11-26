@@ -1,13 +1,14 @@
 import { runCollectionUpdaterAgent, runCollectionAggregatorAgent } from './agents/collectionagents.js';
 import { runBlurBiddingAgent } from './agents/blurbidagents.js';
-import { runListingAgent } from './agents/listingagent.js';
+import { runBlurListingAgent, runOpenSeaListingAgent } from './agents/listingagents.js';
 import { runOpenSeaBiddingAgent } from './agents/openseabidagent.js';
 import { CronJob } from 'cron';
 
 let collections = [];
 let isCollectionUpdatedAgentRunning = false;
 let isCollectionAggregatorAgentRunning = false;
-let isListingAgentRunning = false;
+let isBlurListingAgentRunning = false;
+let isOpenSeaListingAgentRunning = false;
 let isBlurBiddingAgentRunning = false;
 let isOpenSeaBiddingAgentRunning = false;
 let lastOpenSeaBiddingAgentRun = new Date(0);
@@ -42,19 +43,34 @@ const runCollectionAggregatorAgentJob = new CronJob('0 0 * * *', async () => {
     isCollectionUpdatedAgentRunning = false;
 });
 
-const runListingAgentJob = new CronJob('*/3 * * * *', async () => {
-    if (isListingAgentRunning)
+const runBlurListingAgentJob = new CronJob('*/3 * * * *', async () => {
+    if (isBlurListingAgentRunning)
         return;
-    isListingAgentRunning = true;
+    isBlurListingAgentRunning = true;
     try {
         if (collections.length == 0)
             return;
-        await runListingAgent(collections);
+        await runBlurListingAgent(collections);
     }
     catch (err) {
         console.error(err);
     }
-    isListingAgentRunning = false;
+    isBlurListingAgentRunning = false;
+});
+
+const runOpenSeaListingAgentJob = new CronJob('*/3 * * * *', async () => {
+    if (isOpenSeaListingAgentRunning)
+        return;
+    isOpenSeaListingAgentRunning = true;
+    try {
+        if (collections.length == 0)
+            return;
+        await runOpenSeaListingAgent(collections);
+    }
+    catch (err) {
+        console.error(err);
+    }
+    isOpenSeaListingAgentRunning = false;
 });
 
 const runBlurBiddingAgentJob = new CronJob('* * * * *', async () => {
@@ -94,7 +110,8 @@ async function main() {
     // start cron jobs
     runCollectionUpdatedAgentJob.start();
     runCollectionAggregatorAgentJob.start();
-    runListingAgentJob.start();
+    runBlurListingAgentJob.start();
+    runOpenSeaListingAgentJob.start();
     runBlurBiddingAgentJob.start();
     runOpenSeaBiddingAgentJob.start();
 }
