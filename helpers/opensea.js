@@ -150,6 +150,9 @@ async function getOpenSeaListingPrice(collectionData, rarityRank) {
                 collectionData.opensea.rankingPercentile.tenToFifty.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio
             ) :
             collectionData.opensea.rankingPercentile.twentyFiveToFifty.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio) * openSeaListingPrice;
+    // bid sales are higher than listing sales by 50% and rarity percentile is greater than 10% then set the list price to the floor price
+    if(rarityRankPercentile > .1 && (collectionData.blur.sevenDayAcceptedBidSales + collectionData.opensea.sevenDayAcceptedBidSales) / (collectionData.blur.sevenDayListingSales + collectionData.opensea.sevenDayListingSales) > 1.5)
+        openSeaListingPrice = openSeaFloorPrice;
     openSeaListingPrice = openSeaListingPrice.toFixed(6) * 1;
     if (openSeaListingPrice == 0)
         return;
