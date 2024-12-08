@@ -41,7 +41,7 @@ jobs:
           registryPassword: ${{ secrets.XLITIXNFTBOT_REGISTRY_PASSWORD }}
           containerAppName: xlitix-nftbot
           resourceGroup: xlitix
-          imageToBuild: ghcr.io/xlitix-nftbot:${{ github.sha }}
+          imageToBuild: ghcr.io/falkonxl/xlitix-nftbot:${{ github.sha }}
           _buildArgumentsKey_: |
             _buildArgumentsValues_
 
