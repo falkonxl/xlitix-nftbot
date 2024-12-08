@@ -68,8 +68,8 @@ async function getOpenSeaTraitBidAmount(collectionData, traitRarityPercentile) {
     else if (traitRarityPercentile.to > 10) {
         bidAmount = bidAmount.toFixed(4) * 1 + 0.0005;
         // check to see if the bid amount is higher than the 7 day average floor price to protect against price spikes
-        if (bidAmount > collectionData.opensea.sevenDayAverageDailyAverageFloorPrice)
-            bidAmount = collectionData.opensea.sevenDayAverageDailyAverageFloorPrice.toFixed(4) * 1;
+        if (bidAmount > collectionData.opensea.sevenDayMedianDailyAverageFloorPrice)
+            bidAmount = collectionData.opensea.sevenDayMedianDailyAverageFloorPrice.toFixed(4) * 1;
         let floorPriceMultiplier = collectionData.opensea.rankingPercentile.tenToFifty.thirtyDayAdjustedListingSales < 5 ?
             collectionData.opensea.rankingPercentile.tenToFifty.thirtyDayAverageListingSalePriceToFloorPriceRatio :
             collectionData.opensea.rankingPercentile.tenToFifty.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio;
@@ -115,8 +115,8 @@ async function getOpenSeaListingPrice(collectionData, rarityRank) {
     var openSeaFloorPrice = collectionOpenSeaData?.total?.floor_price * 1;
     let rarityMultiplier = 1;
     let rarityRankPercentile = rarityRank / collectionData.totalSupply;
-    if (collectionData?.opensea?.sevenDayAverageDailyAverageFloorPrice > 0)
-        openSeaListingPrice = collectionData.opensea.sevenDayAverageDailyAverageFloorPrice.toFixed(6) * 1;
+    if (collectionData?.opensea?.sevenDayMedianDailyAverageFloorPrice > 0)
+        openSeaListingPrice = collectionData.opensea.sevenDayMedianDailyAverageFloorPrice.toFixed(6) * 1;
     let openseaCollectionOffers = await getOpenSeaCollectionOffers(collectionData.slug);
     if (openseaCollectionOffers == null || openseaCollectionOffers.offers == null || openseaCollectionOffers.offers.length == 0)
         return;
