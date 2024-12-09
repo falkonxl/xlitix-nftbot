@@ -62,7 +62,7 @@ jobs:
                 --resource-group xlitix  \
                 --name xlitix-nftbot \
                 --container-name $container \
-                --image ghcr.io/falkonxl/xlitix-nftbot:ea420b5d837bad1119a1997b6c33e91bcb0cd8aa \
+                --image https://ghcr.io/falkonxl/xlitix-nftbot:ea420b5d837bad1119a1997b6c33e91bcb0cd8aa \
                 --only-show-errors
             done
 
