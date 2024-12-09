@@ -49,9 +49,9 @@ jobs:
         with:
           inlineScript: |
             az extension add --name containerapp --upgrade
-            az containerapp registry set -n xlitix-nftbot-3 -g xlitix --server ghcr.io --username ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }}
+            az containerapp registry set -n xlitix-nftbot-4 -g xlitix --server ghcr.io --username ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }}
             replicaset_containers=$(\
-              az containerapp show --name xlitix-nftbot-3 \
+              az containerapp show --name xlitix-nftbot-4 \
                   --resource-group xlitix \
                   --query 'properties.template.containers[*].name' \
                   --output tsv \
@@ -60,7 +60,7 @@ jobs:
             for container in $replicaset_containers; do
               az containerapp update \
                 --resource-group xlitix  \
-                --name xlitix-nftbot-3 \
+                --name xlitix-nftbot-4 \
                 --container-name $container \
                 --image ghcr.io/falkonxl/xlitix-nftbot:054c5f0a8510ce0ef2762767d599e8c9a1c3d49b \
                 --only-show-errors
