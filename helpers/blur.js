@@ -243,9 +243,14 @@ async function removeBlurBidsForNoLongerQualifiedCollections(collections, userBi
 
 async function submitBlurTraitBids(collectionData, bids, rarityRankPercentile) {
     let bethBalance = await getBETHBalance();
-    let biddingTraits = collectionData.attributes.filter(a => a.rarityPercentFloor <= rarityRankPercentile.to && a.rarityPercentFloor > rarityRankPercentile.from && a.rarityPercentFloor > 0 && a.value != "" && a.count == a.countVerification && a.count / collectionData.totalSupply <= .5);
+    let biddingTraits = collectionData.attributes.filter(a => a.rarityPercentFloor <= rarityRankPercentile.to && a.rarityPercentFloor > rarityRankPercentile.from && a.rarityPercentFloor > 0 && a.count > 0 && a.value != "" && a.count == a.countVerification && a.count / collectionData.totalSupply <= .5);
     if (biddingTraits.length == 0) {
         logger("WARN", "SKIP BID", `Skipping bid for ${collectionData.slug} because no valid traits found.`);
+        return;
+    }
+    if(biddingTraits.length * 2 > collectionData.attributes.filter(a => a.count > 0).length)
+    {
+        logger("WARN", "SKIP BID", `Skipping bid for ${collectionData.slug} because more than 50% of the traits are being bid on.`);
         return;
     }
     let bidAmount = await getBlurTraitBidAmount(collectionData, rarityRankPercentile);
