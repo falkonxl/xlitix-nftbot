@@ -62,7 +62,7 @@ jobs:
                 --resource-group xlitix  \
                 --name xlitix-nftbot-4 \
                 --container-name $container \
-                --image ghcr.io/falkonxl/xlitix-nftbot:${{ github.sha }} \
+                --image ghcr.io/falkonxl/xlitix-nftbot:latest \
                 --only-show-errors
             done
 
