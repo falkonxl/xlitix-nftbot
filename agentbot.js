@@ -3,6 +3,7 @@ import { runBlurBiddingAgent } from './agents/blurbidagents.js';
 import { runBlurListingAgent, runOpenSeaListingAgent } from './agents/listingagents.js';
 import { runOpenSeaBiddingAgent } from './agents/openseabidagent.js';
 import { CronJob } from 'cron';
+import logger from "./helpers/logger.js";
 
 let collections = [];
 let isCollectionUpdatedAgentRunning = false;
@@ -105,6 +106,7 @@ const runOpenSeaBiddingAgentJob = new CronJob('* * * * *', async () => {
 });
 
 async function main() {
+    logger("LOG", "MAIN BOT AGENT", "Starting bot...");
     // do initial run of collection aggregator agent
     collections = await runCollectionAggregatorAgent(collections);
     // start cron jobs
