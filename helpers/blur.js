@@ -283,7 +283,7 @@ async function submitBlurTraitBids(collectionData, bids, rarityRankPercentile) {
         }
     }
     for (let i = 0; i < biddingTraits.length; i++) {
-        let error;
+        let response;
         let trait = biddingTraits[i];
         let currentBid = null;
         let traitBids = bids.filter(b => b.criteriaType == "TRAIT" && b.criteriaValue[trait.key] == trait.value);
@@ -291,31 +291,39 @@ async function submitBlurTraitBids(collectionData, bids, rarityRankPercentile) {
             currentBid = traitBids.filter(b => b.price == bidAmount)[0];
         const criteria = { type: "TRAIT", value: { [trait.key]: trait.value } };
         // determine the maximum number of bids to place
-        let bidAmountMultiplier = 1;
+        let bidAmountMultiplier = 1.0;
         if (biddingTraits.length > 100)
-            bidAmountMultiplier = 2;
+            bidAmountMultiplier = 2.0;
         let bidQty = Math.floor(bethBalance / (bidAmount * bidAmountMultiplier));
         if (bidQty > process.env.MAX_NUMBER_OF_BIDS)
             bidQty = process.env.MAX_NUMBER_OF_BIDS * 1;
         if (bidQty == 0)
             bidQty = 1;
         if (currentBid == null) {
-            error = await createBlurBid(collectionData, criteria, bidAmount, bidQty);
-            if (error == null)
-                logger("INFO", "PLACE BID", `Placing a new trait bid {"${criteria.type}":"${criteria.value}"} of ${bidAmount} ETH for ${collectionData.slug}.`);
+            response = await createBlurBid(collectionData, criteria, bidAmount, bidQty);
+            if (response == true)
+                logger("INFO", "PLACE BID", `Placing a new trait bid {"${trait.key}":"${trait.value}"} of ${bidAmount} ETH with quantity ${bidQty} (using multiplier of ${bidAmountMultiplier}) for ${collectionData.slug}.`);
         }
         else if (currentBid != null) {
-            if ((currentBid.openSize ?? 1) < bidQty) {
-                error = await createBlurBid(collectionData, criteria, bidAmount, bidQty - (currentBid.openSize ?? 1));
-                if (error == null)
-                    logger("INFO", "PLACE BID", `Adjusting bid qty by ${bidQty - (currentBid.openSize ?? 1)}  on a trait bid {"${criteria.type}":"${criteria.value}"} of ${bidAmount} ETH for ${collectionData.slug}.`);
+            if ((currentBid.openSize ?? 1) > bidQty) {
+                response= await cancelBlurBid(collectionData.contractAddress, { type: currentBid.criteriaType, value: currentBid.criteriaValue }, (currentBid.price * 1), await getBlurAuthToken(), process.env.WALLET_ADDRESS);
+                if (response.success == true)
+                    logger("WARN", "CANCEL BID", `Cancelling trait bid {"${trait.key}":"${trait.value}"} of ${currentBid.price} ETH for ${collectionData.slug} because bid qty doesn't match {${bidQty} -> ${currentBid.openSize ?? 1}}.`);
+                response = await createBlurBid(collectionData, criteria, bidAmount, bidQty);
+                if (response == true)
+                    logger("INFO", "PLACE BID", `Placing a replacement bid qty of ${bidQty} (using multiplier of ${bidAmountMultiplier}) on a trait bid {"${trait.key}":"${trait.value}"} of ${bidAmount} ETH for ${collectionData.slug}.`);
+            }
+            else if ((currentBid.openSize ?? 1) < bidQty) {
+                response = await createBlurBid(collectionData, criteria, bidAmount, bidQty - (currentBid.openSize ?? 1));
+                if (response == true)
+                    logger("INFO", "PLACE BID", `Adjusting bid qty by ${bidQty - (currentBid.openSize ?? 1)} (using multiplier of ${bidAmountMultiplier}) on a trait bid {"${trait.key}":"${trait.value}"} of ${bidAmount} ETH for ${collectionData.slug}.`);
             }
         }
-        if (error != null)
-            if (error.message == 'Balance over-utilized') {
-                logger("WARN", "STOP BID", `Stopping bid for ${collectionData.slug} because balance is over-utilized.`);
-                break;
-            }
+        //if (error != null)
+        //    if (error.message == 'Balance over-utilized') {
+        //        logger("WARN", "STOP BID", `Stopping bid for ${collectionData.slug} because balance is over-utilized.`);
+        //        break;
+        //    }
     }
 }
 

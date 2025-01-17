@@ -5,10 +5,10 @@ import logger from "../helpers/logger.js";
 async function runBlurBiddingAgent(collections) {
     logger("LOG", "BLUR BIDDING AGENT", "Downloading user bids data...");
     let userBids = await getUserBids();
-    logger("LOG", "BLUR BIDDING AGENT", "User bids data donwload complete.");
+    logger("LOG", "BLUR BIDDING AGENT", `User bids data donwload complete. Fetched ${userBids.length} bids.`);
     // select collections to bid on
     let selectedCollections = collections.filter(c => c.attributesTotalCount > 10 && (c.blur?.thirtyDayAverageDailyAverageFloorPrice / c.blur?.sevenDayAverageDailyAverageFloorPrice) > .75 
-        && (c.blur?.sevenDayAverageDailyListingSales + c.opensea?.sevenDayAverageDailyListingSales) >= 6
+        && (c.blur?.sevenDayAverageDailyListingSales + c.opensea?.sevenDayAverageDailyListingSales) >= 4
         && c.blur?.sevenDayFloorPriceIncreases > 2 
         && c.blur?.sevenDayAverageDailyAverageFloorPrice > 0.03 
         && (c.blur.sevenDayAcceptedBidSales + c.opensea.sevenDayAcceptedBidSales) / (c.blur.sevenDayListingSales + c.opensea.sevenDayListingSales) < 1.25
