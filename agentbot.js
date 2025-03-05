@@ -90,7 +90,7 @@ const runBlurBiddingAgentJob = new CronJob('* * * * *', async () => {
 });
 
 const runOpenSeaBiddingAgentJob = new CronJob('* * * * *', async () => {
-    if (new Date() - lastOpenSeaBiddingAgentRun < 15 * 6e4 || isOpenSeaBiddingAgentRunning)
+    if (new Date() - lastOpenSeaBiddingAgentRun < 20 * 6e4 || isOpenSeaBiddingAgentRunning)
         return;
     lastOpenSeaBiddingAgentRun = new Date();
     isOpenSeaBiddingAgentRunning = true;

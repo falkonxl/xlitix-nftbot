@@ -1,6 +1,8 @@
 import { ethers } from "ethers";
 import { OpenSeaSDK, Chain } from "opensea-js";
 import logger from "../helpers/logger.js";
+import sendHttpRequest from '../helpers/httprequest.js';
+const sleepinterval = 1400;
 
 // This example provider won't let you make transactions, only read-only calls:
 const provider = new ethers.JsonRpcProvider(process.env.RPC_PROVIDER);
@@ -13,6 +15,12 @@ const openseaSDK = new OpenSeaSDK(wallet, {
     chain: Chain.Mainnet,
     apiKey: process.env.OPENSEA_API_KEY,
 });
+
+const headers = {
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+    "X-RapidAPI-Key": process.env.RAPID_SHARE_OPENSEAAPI_KEY
+}
 
 async function submitOpenSeaListing(contractAddress, tokenId, listPrice) {
     let retryCount = 0;
@@ -119,6 +127,70 @@ async function getOpenSeaCollectionOffers(slug) {
     }
 }
 
+async function createOpenSeaCollectionOffer(slug, offerPrice, offerQuantity, traits) {
+    let retrycount = 0;
+    let payload = {
+        criteria: {
+            slug: slug,
+            traitIdentifier: traits.map(({ key, value }) => ({
+                traitType: key,
+                value: value,
+            }))
+        },
+        quantity: offerQuantity,
+        price: offerPrice,
+        currencyContract: process.env.WETH_CONTRACT_ADDRESS,
+        walletAddress: process.env.WALLET_ADDRESS
+    }
+    while (true) {
+        const response = await sendHttpRequest(`${process.env.RAPID_SHARE_OPENSEAAPI_URL}/collection/offer/create`, "POST", headers, sleepinterval, 3, payload);
+        if (response == null || response.errors != null || response.error != null) {
+            if(response?.errors?.message != null)
+                logger("ERROR", "OPENSEA ERROR", `COLLECTION ${slug} - ${response.errors.message}`);
+            retrycount++;
+            if (retrycount > 3)
+                return { httperror: true };
+            await sleep(sleepinterval);
+            continue;
+        }
+        else {
+            if (response.data?.createCollectionOffer == null)
+                return;
+            return response.data.createCollectionOffer;
+        }
+    }
+}
+
+async function submitOpenSeaCollectionOffer(slug, traits, order, signature) {
+    let retrycount = 0;
+    let payload = {
+        criteria: {
+            slug: slug,
+            traitIdentifier: traits.map(({ key, value }) => ({
+                traitType: key,
+                value: value,
+            }))
+        },
+        order: order,
+        signature: signature
+    }
+    while (true) {
+        const response = await sendHttpRequest(`${process.env.RAPID_SHARE_OPENSEAAPI_URL}/collection/offer/submit`, "POST", headers, sleepinterval, 3, payload);
+        if (response == null || response.errors != null || response.error != null) {
+            retrycount++;
+            if (retrycount > 3)
+                return { httperror: true };
+            await sleep(sleepinterval);
+            continue;
+        }
+        else {
+            if (response.data?.createCollectionOfferV2 == null)
+                return;
+            return response.data.createCollectionOfferV2;
+        }
+    }
+}
+
 async function submitOpenSeaOffer(slug, offerPrice, offerQuantity, trait) {
     let retryCount = 0;
     while (true) {
@@ -148,4 +220,4 @@ async function submitOpenSeaOffer(slug, offerPrice, offerQuantity, trait) {
     }
 }
 
-export { submitOpenSeaListing, getOpenSeaCollectionStats, getOpenSeaCollectionOffers, getOpenSeaListings, submitOpenSeaOffer, getOpenSeaCollection };
+export { submitOpenSeaListing, getOpenSeaCollectionStats, getOpenSeaCollectionOffers, getOpenSeaListings, submitOpenSeaOffer, getOpenSeaCollection, createOpenSeaCollectionOffer, submitOpenSeaCollectionOffer };
