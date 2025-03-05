@@ -4,6 +4,8 @@ import logger from '../helpers/logger.js';
 async function runCollectionAggregatorAgent(collections){
     logger("LOG", "COLLECTION AGGREGATOR AGENT", "Downloading collection data...");
     let c = await getCollections();
+    //let c = [];
+    //c.push((await getCollection("deadfellaz")).collection);
     for (let i = 0; i < c.length; i++)
         if(!collections.some(e => e.slug === c[i].slug)){
             let attributes = await getCollectionAttributes(c[i].slug);

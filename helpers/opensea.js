@@ -1,7 +1,7 @@
 import { ethers } from "ethers";
 import { OpenSeaSDK, Chain } from "opensea-js";
 import logger from "./logger.js";
-import { getOpenSeaCollectionStats, getOpenSeaCollectionOffers, getOpenSeaListings, submitOpenSeaOffer, getOpenSeaCollection } from "../apis/openseaapi.js";
+import { getOpenSeaCollectionStats, getOpenSeaCollectionOffers, getOpenSeaListings, submitOpenSeaOffer, getOpenSeaCollection, createOpenSeaCollectionOffer, submitOpenSeaCollectionOffer } from "../apis/openseaapi.js";
 import ERC20ABI from "../tokens/ERC20ABI.js";
 
 // This example provider won't let you make transactions, only read-only calls:
@@ -19,6 +19,15 @@ async function getWETHBalance() {
     return balance.toString() / 1000000000000000000;
 }
 
+function getOpenSeaRounding(bidAmount) {
+    if (bidAmount < 0.1)
+        return { increment: 0.0001, digits: 4 };
+    else if (bidAmount < 1.0)
+        return { increment: 0.001, digits: 3 };
+    else
+        return { increment: 0.01, digits: 2 };
+}
+
 async function getOpenSeaTraitBidAmount(collectionData, traitRarityPercentile) {
     if (collectionData.opensea?.rankingPercentile?.oneToTen?.thirtyDayAdjustedAcceptedBidSales < 3 && traitRarityPercentile.to <= 10) {
         logger("WARN", "OPENSEA SKIP BID", `{0-10} Skipping ${collectionData.slug} because not enough bid sales history in the zero to ten percentile.`);
@@ -26,6 +35,10 @@ async function getOpenSeaTraitBidAmount(collectionData, traitRarityPercentile) {
     }
     if (collectionData.opensea?.rankingPercentile?.tenToFifty?.thirtyDayAdjustedAcceptedBidSales < 5 && traitRarityPercentile.to > 10) {
         logger("WARN", "OPENSEA SKIP BID", `{10-50} Skipping ${collectionData.slug} because not enough bid sales history in the ten to fifty percentile.`);
+        return;
+    }
+    if (collectionData.opensea?.rankingPercentile?.tenToFifty?.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio > 1.5 && traitRarityPercentile.to > 10) {
+        logger("WARN", "SKIP BID", `Skipping ${collectionData.slug} because listing sale to floor price ratio is abnormally high.`);
         return;
     }
     let collection = await getOpenSeaCollection(collectionData.slug);
@@ -52,43 +65,67 @@ async function getOpenSeaTraitBidAmount(collectionData, traitRarityPercentile) {
     bidAmount = openSeaTopBidAmount;
 
     if (traitRarityPercentile.to <= 10) {
-        bidAmount = bidAmount.toFixed(4) * 1 + 0.0005;
-        let floorPriceMultiplier = collectionData.opensea.rankingPercentile.oneToTen.thirtyDayAdjustedListingSales < 3 ?
+        let rounding = getOpenSeaRounding(bidAmount);
+        bidAmount = bidAmount.toFixed(rounding.digits) * 1 + rounding.increment;
+        rounding = getOpenSeaRounding(bidAmount); // recalculate rounding based on new bid amount after increment
+        bidAmount = bidAmount.toFixed(rounding.digits) * 1;
+        let listingFloorPriceMultiplier = collectionData.opensea.rankingPercentile.oneToTen.thirtyDayAdjustedListingSales < 3 ?
             collectionData.opensea.rankingPercentile.oneToTen.thirtyDayAverageListingSalePriceToFloorPriceRatio :
             collectionData.opensea.rankingPercentile.oneToTen.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio
-        if (bidAmount > (floorPriceMultiplier * openSeaFloorPrice).toFixed(4))
-            logger("WARN", "OPENSEA BID ALERT", `{0-10} Bid for ${collectionData.slug} is greater than the projected bid amount {${bidAmount} > ${(floorPriceMultiplier * openSeaFloorPrice).toFixed(4)}}.`);
-        else if (bidAmount < (floorPriceMultiplier * openSeaFloorPrice).toFixed(4))
-            logger("WARN", "OPENSEA BID ALERT", `{0-10} Bid for ${collectionData.slug} is less than the projected bid amount {${bidAmount} < ${(floorPriceMultiplier * openSeaFloorPrice).toFixed(4)}}.`);
-        if (bidAmount * 1.05 > floorPriceMultiplier * openSeaFloorPrice) {
-            logger("WARN", "OPENSEA SKIP BID", `{0-10} Skipping ${collectionData.slug} because bid amount is not profitable based the projected sale price.`);
+        let bidFloorPriceMultiplier = collectionData.opensea.rankingPercentile.oneToTen.thirtyDayAdjustedListingSales < 3 ?
+            collectionData.opensea.rankingPercentile.oneToTen.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio :
+            collectionData.opensea.rankingPercentile.oneToTen.thirtyDayAdjustedAverageAcceptedBidSalePriceToFloorPriceRatio;
+        if (bidAmount > (bidFloorPriceMultiplier * openSeaFloorPrice).toFixed(rounding.digits) * 1)
+            logger("WARN", "OPENSEA BID ALERT", `{${traitRarityPercentile.from}-${traitRarityPercentile.to}} Bid for ${collectionData.slug} is greater than the projected bid amount {${bidAmount} > ${(bidFloorPriceMultiplier * openSeaFloorPrice).toFixed(rounding.digits)}}.`);
+        else if (bidAmount < (bidFloorPriceMultiplier * openSeaFloorPrice).toFixed(rounding.digits) * 1)
+            logger("WARN", "OPENSEA BID ALERT", `{${traitRarityPercentile.from}-${traitRarityPercentile.to}} Bid for ${collectionData.slug} is less than the projected bid amount {${bidAmount} < ${(bidFloorPriceMultiplier * openSeaFloorPrice).toFixed(rounding.digits)}}.`);
+        if (bidAmount * 1.05 > listingFloorPriceMultiplier * openSeaFloorPrice) {
+            logger("WARN", "OPENSEA SKIP BID", `{${traitRarityPercentile.from}-${traitRarityPercentile.to}} Skipping ${collectionData.slug} because bid amount is not profitable based the projected sale price.`);
             return;
         }
     }
     else if (traitRarityPercentile.to > 10) {
-        bidAmount = bidAmount.toFixed(4) * 1 + 0.0005;
+        let rounding = getOpenSeaRounding(bidAmount);
+        bidAmount = bidAmount.toFixed(rounding.digits) * 1 + rounding.increment;
+        rounding = getOpenSeaRounding(bidAmount); // recalculate rounding based on new bid amount after increment
+        bidAmount = bidAmount.toFixed(rounding.digits) * 1;
+        let projectedAcceptedBidAmount = (collectionData.opensea.rankingPercentile.tenToFifty.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio * openSeaFloorPrice);
+        rounding = getOpenSeaRounding(projectedAcceptedBidAmount);
+        projectedAcceptedBidAmount = projectedAcceptedBidAmount.toFixed(rounding.digits) * 1;
+        if (bidAmount > projectedAcceptedBidAmount)
+            bidAmount = projectedAcceptedBidAmount;
         // check to see if the bid amount is higher than the 7 day average floor price to protect against price spikes
-        if (bidAmount > collectionData.opensea.sevenDayMedianDailyAverageFloorPrice)
-            bidAmount = collectionData.opensea.sevenDayMedianDailyAverageFloorPrice.toFixed(4) * 1;
-        let floorPriceMultiplier = collectionData.opensea.rankingPercentile.tenToFifty.thirtyDayAdjustedListingSales < 5 ?
+        if (bidAmount > collectionData.opensea.sevenDayMedianDailyAverageFloorPrice) {
+            rounding = getOpenSeaRounding(collectionData.opensea.sevenDayMedianDailyAverageFloorPrice);
+            bidAmount = collectionData.opensea.sevenDayMedianDailyAverageFloorPrice.toFixed(rounding.digits) * 1;
+        }
+        let listingFloorPriceMultiplier = collectionData.opensea.rankingPercentile.tenToFifty.thirtyDayAdjustedListingSales < 5 ?
             collectionData.opensea.rankingPercentile.tenToFifty.thirtyDayAverageListingSalePriceToFloorPriceRatio :
             collectionData.opensea.rankingPercentile.tenToFifty.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio;
-        if (bidAmount > (floorPriceMultiplier * openSeaFloorPrice).toFixed(4))
-            logger("WARN", "OPENSEA BID ALERT", `{10-50} Bid for ${collectionData.slug} is greater than the projected bid amount {${bidAmount} > ${(floorPriceMultiplier * openSeaFloorPrice).toFixed(4)}}.`);
-        else if (bidAmount < (floorPriceMultiplier * openSeaFloorPrice).toFixed(4))
-            logger("WARN", "OPENSEA BID ALERT", `{10-50} Bid for ${collectionData.slug} is less than the projected bid amount {${bidAmount} < ${(floorPriceMultiplier * openSeaFloorPrice).toFixed(4)}}.`);
-        if (bidAmount * 1.05 > floorPriceMultiplier * openSeaFloorPrice) {
-            logger("WARN", "OPENSEA SKIP BID", `{10-50} Skipping ${collectionData.slug} because bid amount is not profitable based the projected sale price.`);
+        let bidFloorPriceMultiplier = collectionData.opensea.rankingPercentile.tenToFifty.thirtyDayAdjustedListingSales < 5 ?
+            collectionData.opensea.rankingPercentile.tenToFifty.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio :
+            collectionData.opensea.rankingPercentile.tenToFifty.thirtyDayAdjustedAverageAcceptedBidSalePriceToFloorPriceRatio;
+        if (bidAmount > (bidFloorPriceMultiplier * openSeaFloorPrice).toFixed(rounding.digits) * 1)
+            logger("WARN", "OPENSEA BID ALERT", `{${traitRarityPercentile.from}-${traitRarityPercentile.to}} Bid for ${collectionData.slug} is greater than the projected bid amount {${bidAmount} > ${(bidFloorPriceMultiplier * openSeaFloorPrice).toFixed(rounding.digits)}}.`);
+        else if (bidAmount < (bidFloorPriceMultiplier * openSeaFloorPrice).toFixed(rounding.digits) * 1)
+            logger("WARN", "OPENSEA BID ALERT", `{${traitRarityPercentile.from}-${traitRarityPercentile.to}} Bid for ${collectionData.slug} is less than the projected bid amount {${bidAmount} < ${(bidFloorPriceMultiplier * openSeaFloorPrice).toFixed(rounding.digits)}}.`);
+        if (bidAmount * 1.05 > listingFloorPriceMultiplier * openSeaFloorPrice) {
+            logger("WARN", "OPENSEA SKIP BID", `{${traitRarityPercentile.from}-${traitRarityPercentile.to}} Skipping ${collectionData.slug} because bid amount is not profitable based the projected sale price.`);
             return;
         }
     }
-    return bidAmount.toFixed(4) * 1;
+    let rounding = getOpenSeaRounding(bidAmount); // recalculate rounding based on new bid amount after increment
+    return bidAmount.toFixed(rounding.digits) * 1;
 }
 
 async function submitOpenSeaTraitBids(collectionData, rarityRankPercentile, wethBalance) {
-    let biddingTraits = collectionData.attributes.filter(a => a.rarityPercentFloor <= rarityRankPercentile.to && a.rarityPercentFloor > rarityRankPercentile.from && a.rarityPercentFloor > 0 && a.value != "" && a.count == a.countVerification && a.count / collectionData.totalSupply <= .5);
+    let biddingTraits = collectionData.attributes.filter(
+        a => a.opensea?.rarityPercentFloor <= rarityRankPercentile.to && a.opensea.count > 1 && a.opensea?.rarityPercentFloor > rarityRankPercentile.from && a.opensea?.rarityPercentFloor > 0 && a.opensea?.count > 0 && a.opensea?.value != "" && a.opensea?.count == a.opensea?.countVerification && a.opensea?.count / collectionData.totalSupply <= .5 &&
+            a.blur?.rarityPercentFloor <= rarityRankPercentile.to && a.blur?.rarityPercentFloor > rarityRankPercentile.from && a.blur?.rarityPercentFloor > 0 && a.blur?.count > 0 && a.blur?.value != "" && a.blur?.count == a.blur?.countVerification && a.blur?.count / collectionData.totalSupply <= .5
+
+    );
     if (biddingTraits.length == 0) {
-        logger("WARN", "OPENSEA SKIP BID", `Skipping bid for ${collectionData.slug} because no valid traits found.`);
+        logger("WARN", "OPENSEA SKIP BID", `{${rarityRankPercentile.from},${rarityRankPercentile.to}} Skipping bid for ${collectionData.slug} because no valid traits found.`);
         return;
     }
     let bidAmount = await getOpenSeaTraitBidAmount(collectionData, rarityRankPercentile);
@@ -101,9 +138,29 @@ async function submitOpenSeaTraitBids(collectionData, rarityRankPercentile, weth
             return;
         }
     }
-    for (let i = 0; i < biddingTraits.length; i++) {
-        let trait = biddingTraits[i];
-        await submitOpenSeaOffer(collectionData.slug, bidAmount, 1, trait);
+    let batchSize = 5;
+    for (let i = 0; i < biddingTraits.length; i += batchSize) {
+        const batch = biddingTraits.slice(i, i + batchSize);
+        await Promise.all(batch.map(async (trait) => {
+            const traits = [];
+            traits.push({ key: trait.key, value: trait.value });
+            const offer = await createOpenSeaCollectionOffer(collectionData.slug, bidAmount, 1, traits);
+            if (offer == null || offer.httperror != null) {
+                logger("ERROR", "OPENSEA BID ERROR", `Error submitting bid for ${collectionData.slug}`);
+                return;
+            }
+            if (offer.errors != null)
+                for (let i = 0; i < offer.errors.length; i++) {
+                    logger("ERROR", "OPENSEA BID ERROR", `Error submitting bid for ${collectionData.slug} (${trait.key}:${trait.value}) for ${bidAmount} ETH. Error: ${offer.errors[i].message}`);
+                }
+            if (offer.actions != null && offer.actions.length == 1) {
+                const signatureRequest = JSON.parse(offer.actions[0].signatureRequest.message);
+                const signature = await wallet.signTypedData(signatureRequest.domain, signatureRequest.types, signatureRequest.message)
+                const submission = await submitOpenSeaCollectionOffer(collectionData.slug, traits, offer.actions[0].order, signature);
+                if (submission?.errorsV2 != null)
+                    logger("ERROR", "OPENSEA BID ERROR", `Error submitting bid for ${collectionData.slug} (${trait.key}:${trait.value}) for ${bidAmount} ETH.}`);
+            }
+        }));
     }
 }
 
@@ -151,7 +208,7 @@ async function getOpenSeaListingPrice(collectionData, rarityRank) {
             ) :
             collectionData.opensea.rankingPercentile.twentyFiveToFifty.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio) * openSeaListingPrice;
     // bid sales are higher than listing sales by 50% and rarity percentile is greater than 10% then set the list price to the floor price
-    if(rarityRankPercentile > .1 && (collectionData.blur.sevenDayAcceptedBidSales + collectionData.opensea.sevenDayAcceptedBidSales) / (collectionData.blur.sevenDayListingSales + collectionData.opensea.sevenDayListingSales) > 1.5)
+    if (rarityRankPercentile > .1 && (collectionData.blur.sevenDayAcceptedBidSales + collectionData.opensea.sevenDayAcceptedBidSales) / (collectionData.blur.sevenDayListingSales + collectionData.opensea.sevenDayListingSales) > 1.5)
         openSeaListingPrice = openSeaFloorPrice;
     openSeaListingPrice = openSeaListingPrice.toFixed(6) * 1;
     if (openSeaListingPrice == 0)
