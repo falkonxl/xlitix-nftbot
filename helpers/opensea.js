@@ -138,7 +138,7 @@ async function submitOpenSeaTraitBids(collectionData, rarityRankPercentile, weth
             return;
         }
     }
-    let batchSize = 5;
+    let batchSize = 10;
     for (let i = 0; i < biddingTraits.length; i += batchSize) {
         const batch = biddingTraits.slice(i, i + batchSize);
         await Promise.all(batch.map(async (trait) => {
