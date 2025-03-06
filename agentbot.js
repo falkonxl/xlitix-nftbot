@@ -115,7 +115,7 @@ async function main() {
     runBlurListingAgentJob.start();
     runOpenSeaListingAgentJob.start();
     runBlurBiddingAgentJob.start();
-    runOpenSeaBiddingAgentJob.start();
+    //runOpenSeaBiddingAgentJob.start();
 }
 
 main();
