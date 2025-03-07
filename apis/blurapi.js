@@ -42,7 +42,7 @@ async function cancelBlurBid(contractAddress, criteria, bidamount = 0, authToken
     return response;
 }
 
-async function getUserTokensFromBlur(userWalletAddress, contractAddress, hasAsks = false,  authToken, walletAddress) {
+async function getUserTokensFromBlur(userWalletAddress, contractAddress, hasAsks = false, authToken, walletAddress) {
     let userTokens = [];
     let nextCursor;
     let iterationCount = 0;
@@ -69,8 +69,7 @@ async function getUserTokensFromBlur(userWalletAddress, contractAddress, hasAsks
     return userTokens;
 }
 
-async function getEvents(contractAddress, tokenId, showSales, showMints, showTransfers, showListingOrders)
-{
+async function getEvents(contractAddress, tokenId, showSales, showMints, showTransfers, showListingOrders) {
     let payload = { contractAddress: contractAddress, tokenId: tokenId, showSales: showSales, showMints: showMints, showTransfers: showTransfers, showListingOrders: showListingOrders };
     const response = await sendHttpRequest(`${process.env.RAPID_SHARE_BLURAPI_URL}/events`, "POST", headers, sleepinterval, 3, payload);
     return response;
@@ -80,13 +79,19 @@ async function getUserBlurBids(userWalletAddress, criteria, authToken, walletAdd
     let userBids = [];
     let nextCursor;
     let iterationCount = 0;
+    let retrycount = 0;
     while (true) {
         let payload = { userWalletAddress: userWalletAddress, authToken: authToken, walletAddress: walletAddress, criteria: criteria }
         if (nextCursor != null)
             payload.nextCursor = nextCursor;
         const response = await sendHttpRequest(`${process.env.RAPID_SHARE_BLURAPI_URL}/user/bids`, "POST", headers, sleepinterval, 3, payload);
-        if (response == null || response.httperror != null)
-            return;
+        if (response == null || response.httperror != null || response.statusCode == 401) {
+            retrycount++;
+            if (retrycount > 3)
+                return { httperror: true };
+            await sleep(sleepinterval);
+            continue;
+        }
         else {
             if (response.priceLevels == null || response.priceLevels.length == 0)
                 break;
@@ -100,23 +105,24 @@ async function getUserBlurBids(userWalletAddress, criteria, authToken, walletAdd
         iterationCount++;
         if (iterationCount > 100)
             break;
+        retrycount = 0; // reset retry count for the next iteration
     }
     return userBids;
 }
 
-async function getBlurCollection(slug){
+async function getBlurCollection(slug) {
     let payload = { collection: slug };
     const response = await sendHttpRequest(`${process.env.RAPID_SHARE_BLURAPI_URL}/collection`, "POST", headers, sleepinterval, 3, payload);
     return response;
 }
 
-async function getListedBlurTokens(slug){
+async function getListedBlurTokens(slug) {
     let payload = { collection: slug };
     const response = await sendHttpRequest(`${process.env.RAPID_SHARE_BLURAPI_URL}/collection/tokens/listed`, "POST", headers, sleepinterval, 3, payload);
     return response;
 }
 
-async function getCollectionExecutableBidsFromBlur(slug){
+async function getCollectionExecutableBidsFromBlur(slug) {
     let payload = { collection: slug };
     const response = await sendHttpRequest(`${process.env.RAPID_SHARE_BLURAPI_URL}/collection/executable-bids`, "POST", headers, sleepinterval, 3, payload);
     if (response == null || response.httperror != null)
@@ -158,7 +164,7 @@ async function getBidFormat(bid, authToken, walletAddress) {
         walletAddress: walletAddress,
         authToken: authToken
     };
-    let response = await sendHttpRequest( `${process.env.RAPID_SHARE_BLURAPI_URL}/bid/format`, "POST", headers, sleepinterval, 3, payload);
+    let response = await sendHttpRequest(`${process.env.RAPID_SHARE_BLURAPI_URL}/bid/format`, "POST", headers, sleepinterval, 3, payload);
     return response;
 }
 
@@ -168,7 +174,7 @@ async function submitBid(bidSubmission, authToken, walletAddress) {
         authToken: authToken,
         walletAddress: walletAddress
     };
-    let response = await sendHttpRequest( `${process.env.RAPID_SHARE_BLURAPI_URL}/bid/submit`, "POST", headers, sleepinterval, 3, payload);
+    let response = await sendHttpRequest(`${process.env.RAPID_SHARE_BLURAPI_URL}/bid/submit`, "POST", headers, sleepinterval, 3, payload);
     return response;
 }
 
