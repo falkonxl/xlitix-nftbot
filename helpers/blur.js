@@ -250,7 +250,7 @@ async function removeBlurBidsForNoLongerQualifiedCollections(collections, userBi
 async function submitBlurTraitBids(collectionData, bids, rarityRankPercentile) {
     let bethBalance = await getBETHBalance();
     let biddingTraits = collectionData.attributes.filter(
-        a => a.opensea?.rarityPercentFloor <= rarityRankPercentile.to && a.opensea.count > 1 && a.opensea?.rarityPercentFloor > rarityRankPercentile.from && a.opensea?.rarityPercentFloor > 0 && a.opensea?.count > 0 && a.opensea?.value != "" && a.opensea?.count == a.opensea?.countVerification && a.opensea?.count / collectionData.totalSupply <= .5 &&
+        a => a.opensea?.rarityPercentFloor <= rarityRankPercentile.to && a.opensea?.rarityPercentFloor > rarityRankPercentile.from && a.opensea?.rarityPercentFloor > 0 && a.opensea?.count > 0 && a.opensea?.value != "" && a.opensea?.count == a.opensea?.countVerification && a.opensea?.count / collectionData.totalSupply <= .5 &&
             a.blur?.rarityPercentFloor <= rarityRankPercentile.to && a.blur?.rarityPercentFloor > rarityRankPercentile.from && a.blur?.rarityPercentFloor > 0 && a.blur?.count > 0 && a.blur?.value != "" && a.blur?.count == a.blur?.countVerification && a.blur?.count / collectionData.totalSupply <= .5    
     );
     if (biddingTraits.length == 0) {
