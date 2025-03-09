@@ -8,6 +8,7 @@ const headers = {
     "X-RapidAPI-Key": process.env.RAPID_SHARE_BLURAPI_KEY
 }
 const sleepinterval = 1400;
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 async function getBlurAuthChallenge(walletAddress) {
     let payload = { walletAddress: walletAddress };
