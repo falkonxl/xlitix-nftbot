@@ -275,11 +275,11 @@ async function submitBlurTraitBids(collectionData, bids, rarityRankPercentile) {
         a.blur?.count === a.blur?.countVerification &&
         a.blur?.count / collectionData.totalSupply <= 0.5
     )
-    .filter((item, index, self) =>
-        index === self.findIndex(t => 
-            t.opensea?.value?.toLowerCase() === item.opensea?.value?.toLowerCase() &&
-            t.blur?.value?.toLowerCase() === item.blur?.value?.toLowerCase()
-        )
+    .filter(a =>
+        collectionData.attributes.filter(t => 
+            t.value?.toLowerCase() === a.value?.toLowerCase() &&
+            t.key?.toLowerCase() === a.key?.toLowerCase()
+        ).length == 1
     );
     if (biddingTraits.length == 0) {
         logger("WARN", "SKIP BID", `{${rarityRankPercentile.from},${rarityRankPercentile.to}} Skipping bid for ${collectionData.slug} because no valid traits found.`);
