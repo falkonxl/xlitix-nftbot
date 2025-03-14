@@ -106,7 +106,7 @@ const runOpenSeaBiddingAgentJob = new CronJob('* * * * *', async () => {
 });
 
 async function main() {
-    logger("LOG", "MAIN BOT AGENT", "Starting bot v. 0.7.3...");
+    logger("LOG", "MAIN BOT AGENT", "Starting bot v. 0.7.4...");
     // do initial run of collection aggregator agent
     collections = await runCollectionAggregatorAgent(collections);
     // start cron jobs

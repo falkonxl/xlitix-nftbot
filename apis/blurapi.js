@@ -52,8 +52,13 @@ async function getUserTokensFromBlur(userWalletAddress, contractAddress, hasAsks
         if (nextCursor != null)
             payload.nextCursor = nextCursor;
         const response = await sendHttpRequest(`${process.env.RAPID_SHARE_BLURAPI_URL}/user/tokens`, "POST", headers, sleepinterval, 3, payload);
-        if (response == null || response.httperror != null)
-            return;
+        if (response == null || response.httperror != null || response.statusCode == 401) {
+            retrycount++;
+            if (retrycount > 3)
+                return { httperror: true };
+            await sleep(sleepinterval);
+            continue;
+        }
         else {
             if (response.tokens == null || response.tokens.length == 0)
                 break;
