@@ -119,13 +119,38 @@ async function getOpenSeaTraitBidAmount(collectionData, traitRarityPercentile) {
 }
 
 async function submitOpenSeaTraitBids(collectionData, rarityRankPercentile, wethBalance) {
-    let biddingTraits = collectionData.attributes.filter(
-        a => a.opensea?.rarityPercentFloor <= rarityRankPercentile.to && a.opensea?.rarityPercentFloor > rarityRankPercentile.from && a.opensea?.rarityPercentFloor > 0 && a.opensea?.count > 0 && a.opensea?.value != "" && a.opensea?.count == a.opensea?.countVerification && a.opensea?.count / collectionData.totalSupply <= .5 &&
-            a.blur?.rarityPercentFloor <= rarityRankPercentile.to && a.blur?.rarityPercentFloor > rarityRankPercentile.from && a.blur?.rarityPercentFloor > 0 && a.blur?.count > 0 && a.blur?.value != "" && a.blur?.count == a.blur?.countVerification && a.blur?.count / collectionData.totalSupply <= .5
-
+    let biddingTraits = collectionData.attributes
+    .filter(a =>
+        a.opensea?.rarityPercentFloor <= rarityRankPercentile.to &&
+        a.opensea?.rarityPercentFloor > rarityRankPercentile.from &&
+        a.opensea?.rarityPercentFloor > 0 &&
+        a.opensea?.count > 0 &&
+        a.opensea?.value?.trim() !== "" &&
+        a.opensea?.count === a.opensea?.countVerification &&
+        a.opensea?.count / collectionData.totalSupply <= 0.5 &&
+        a.blur?.rarityPercentFloor <= rarityRankPercentile.to &&
+        a.blur?.rarityPercentFloor > rarityRankPercentile.from &&
+        a.blur?.rarityPercentFloor > 0 &&
+        a.blur?.count > 0 &&
+        a.blur?.value?.trim() !== "" &&
+        a.blur?.count === a.blur?.countVerification &&
+        a.blur?.count / collectionData.totalSupply <= 0.5
+    )
+    .filter((item, index, self) =>
+        index === self.findIndex(t => 
+            t.opensea?.value?.toLowerCase() === item.opensea?.value?.toLowerCase() &&
+            t.blur?.value?.toLowerCase() === item.blur?.value?.toLowerCase()
+        )
     );
     if (biddingTraits.length == 0) {
         logger("WARN", "OPENSEA SKIP BID", `{${rarityRankPercentile.from},${rarityRankPercentile.to}} Skipping bid for ${collectionData.slug} because no valid traits found.`);
+        return;
+    }
+    // get the total number of tokens with rarity from and to
+    let totalTokensWithRarity = biddingTraits.reduce((a, b) => a + b.opensea.count, 0);
+    let totalTokensWithRarityToSupplyRatio = totalTokensWithRarity / collectionData.totalSupply;
+    if (totalTokensWithRarityToSupplyRatio > .3) {  
+        logger("WARN", "OPENSEA SKIP BID", `{${rarityRankPercentile.from},${rarityRankPercentile.to}} Skipping bid for ${collectionData.slug} because more than 50% of the tokens are in rarity range.`);
         return;
     }
     let bidAmount = await getOpenSeaTraitBidAmount(collectionData, rarityRankPercentile);
@@ -208,7 +233,7 @@ async function getOpenSeaListingPrice(collectionData, rarityRank) {
             ) :
             collectionData.opensea.rankingPercentile.twentyFiveToFifty.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio) * openSeaListingPrice;
     // bid sales are higher than listing sales by 50% and rarity percentile is greater than 10% then set the list price to the floor price
-    if (rarityRankPercentile > .1 && (collectionData.blur.sevenDayAcceptedBidSales + collectionData.opensea.sevenDayAcceptedBidSales) / (collectionData.blur.sevenDayListingSales + collectionData.opensea.sevenDayListingSales) > 1.5)
+    if (rarityRankPercentile > .25 && (collectionData.blur.sevenDayAcceptedBidSales + collectionData.opensea.sevenDayAcceptedBidSales) / (collectionData.blur.sevenDayListingSales + collectionData.opensea.sevenDayListingSales) > 1.5)
         openSeaListingPrice = openSeaFloorPrice;
     openSeaListingPrice = openSeaListingPrice.toFixed(6) * 1;
     if (openSeaListingPrice == 0)
