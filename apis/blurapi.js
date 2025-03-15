@@ -47,6 +47,7 @@ async function getUserTokensFromBlur(userWalletAddress, contractAddress, hasAsks
     let userTokens = [];
     let nextCursor;
     let iterationCount = 0;
+    let retrycount = 0;
     while (true) {
         let payload = { userWalletAddress: userWalletAddress, authToken: authToken, walletAddress: walletAddress, contractAddress: contractAddress, hasAsks: hasAsks }
         if (nextCursor != null)
