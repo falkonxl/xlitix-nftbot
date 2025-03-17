@@ -23,9 +23,9 @@ function getOpenSeaRounding(bidAmount) {
     if (bidAmount < 0.1)
         return { increment: 0.0001, digits: 4 };
     else if (bidAmount < 1.0)
-        return { increment: 0.001, digits: 3 };
+        return { increment: 0.003, digits: 3 };
     else
-        return { increment: 0.01, digits: 2 };
+        return { increment: 0.05, digits: 2 };
 }
 
 async function getOpenSeaTraitBidAmount(collectionData, traitRarityPercentile) {
