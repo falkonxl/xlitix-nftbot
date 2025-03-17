@@ -74,12 +74,12 @@ async function getBlurTraitBidAmount(collectionData, traitRarityPercentile) {
         }
         if(blurTopBidAmount >= bidAmount && blurBidderCount < 5 && (collectionData.blur.sevenDayAcceptedBidSales + collectionData.opensea.sevenDayAcceptedBidSales) / (collectionData.blur.sevenDayListingSales + collectionData.opensea.sevenDayListingSales) > 1)
         {
-            bidAmount = blurTopBidAmount - 0.01;
+            //bidAmount = blurTopBidAmount - 0.01;
             logger("WARN", "DECREASE BID", `{10-50} Adjusting bid lower for ${collectionData.slug} because bid sales are higher than listing sales and bid pool is not large enough.`);
         }
         if (bidAmount > projectedAcceptedBidAmount){
             logger("WARN", "BID ALERT", `{10-50} Bid for ${collectionData.slug} is greater than the projected bid amount {${bidAmount} > ${projectedAcceptedBidAmount}}.`);   
-            bidAmount = projectedAcceptedBidAmount;     
+            //bidAmount = projectedAcceptedBidAmount;     
         }
         else if (bidAmount < projectedAcceptedBidAmount)
             logger("WARN", "BID ALERT", `{10-50} Bid for ${collectionData.slug} is less than the projected bid amount {${bidAmount} < ${projectedAcceptedBidAmount}}.`);

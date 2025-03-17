@@ -89,11 +89,6 @@ async function getOpenSeaTraitBidAmount(collectionData, traitRarityPercentile) {
         bidAmount = bidAmount.toFixed(rounding.digits) * 1 + rounding.increment;
         rounding = getOpenSeaRounding(bidAmount); // recalculate rounding based on new bid amount after increment
         bidAmount = bidAmount.toFixed(rounding.digits) * 1;
-        let projectedAcceptedBidAmount = (collectionData.opensea.rankingPercentile.tenToFifty.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio * openSeaFloorPrice);
-        rounding = getOpenSeaRounding(projectedAcceptedBidAmount);
-        projectedAcceptedBidAmount = projectedAcceptedBidAmount.toFixed(rounding.digits) * 1;
-        if (bidAmount > projectedAcceptedBidAmount)
-            bidAmount = projectedAcceptedBidAmount;
         // check to see if the bid amount is higher than the 7 day average floor price to protect against price spikes
         if (bidAmount > collectionData.opensea.sevenDayMedianDailyAverageFloorPrice) {
             rounding = getOpenSeaRounding(collectionData.opensea.sevenDayMedianDailyAverageFloorPrice);
