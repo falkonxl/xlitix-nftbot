@@ -33,7 +33,7 @@ async function getOpenSeaTraitBidAmount(collectionData, traitRarityPercentile) {
         logger("WARN", "OPENSEA SKIP BID", `{0-10} Skipping ${collectionData.slug} because not enough bid sales history in the zero to ten percentile.`);
         return;
     }
-    if (collectionData.opensea?.rankingPercentile?.tenToFifty?.thirtyDayAdjustedAcceptedBidSales < 5 && traitRarityPercentile.to > 10) {
+    if (collectionData.opensea?.rankingPercentile?.tenToFifty?.thirtyDayAdjustedAcceptedBidSales < 3 && traitRarityPercentile.to > 10) {
         logger("WARN", "OPENSEA SKIP BID", `{10-50} Skipping ${collectionData.slug} because not enough bid sales history in the ten to fifty percentile.`);
         return;
     }
@@ -115,16 +115,26 @@ async function getOpenSeaTraitBidAmount(collectionData, traitRarityPercentile) {
 
 async function submitOpenSeaTraitBids(collectionData, rarityRankPercentile, wethBalance) {
     let biddingTraits = collectionData.attributes
-    .filter(a =>
-        a.opensea?.rarityPercentFloor <= rarityRankPercentile.to &&
-        a.opensea?.rarityPercentFloor > rarityRankPercentile.from &&
+        .filter(a =>
+        ((a.opensea?.rarityPercentFloor <= rarityRankPercentile.to &&
+            a.opensea?.rarityPercentFloor > rarityRankPercentile.from) ||
+            (a.opensea?.thirtyDayAverageListingSalePriceToFloorPriceRatio > 1.1 &&
+                a.opensea?.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio < 1.0 &&
+                a.opensea?.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio > 0 &&
+                rarityRankPercentile.from > 10)
+        ) &&
         a.opensea?.rarityPercentFloor > 0 &&
         a.opensea?.count > 0 &&
         a.opensea?.value?.trim() !== "" &&
         a.opensea?.count === a.opensea?.countVerification &&
         a.opensea?.count / collectionData.totalSupply <= 0.5 &&
-        a.blur?.rarityPercentFloor <= rarityRankPercentile.to &&
-        a.blur?.rarityPercentFloor > rarityRankPercentile.from &&
+        ((a.blur?.rarityPercentFloor <= rarityRankPercentile.to &&
+            a.blur?.rarityPercentFloor > rarityRankPercentile.from) ||
+            (a.blur?.thirtyDayAverageListingSalePriceToFloorPriceRatio > 1.1 &&
+                a.blur?.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio < 1.0 &&
+                a.blur?.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio > 0 &&
+                rarityRankPercentile.from > 10)
+        ) &&
         a.blur?.rarityPercentFloor > 0 &&
         a.blur?.count > 0 &&
         a.blur?.value?.trim() !== "" &&
@@ -132,11 +142,11 @@ async function submitOpenSeaTraitBids(collectionData, rarityRankPercentile, weth
         a.blur?.count / collectionData.totalSupply <= 0.5
     )
     .filter(a =>
-        collectionData.attributes.filter(t => 
-            t.value?.toLowerCase() === a.value?.toLowerCase() &&
-            t.key?.toLowerCase() === a.key?.toLowerCase()
-        ).length == 1
-    );
+            collectionData.attributes.filter(t =>
+                t.value?.toLowerCase() === a.value?.toLowerCase() &&
+                t.key?.toLowerCase() === a.key?.toLowerCase()
+            ).length == 1
+        );
     if (biddingTraits.length == 0) {
         logger("WARN", "OPENSEA SKIP BID", `{${rarityRankPercentile.from},${rarityRankPercentile.to}} Skipping bid for ${collectionData.slug} because no valid traits found.`);
         return;
@@ -144,7 +154,7 @@ async function submitOpenSeaTraitBids(collectionData, rarityRankPercentile, weth
     // get the total number of tokens with rarity from and to
     let totalTokensWithRarity = biddingTraits.reduce((a, b) => a + b.opensea.count, 0);
     let totalTokensWithRarityToSupplyRatio = totalTokensWithRarity / collectionData.totalSupply;
-    if (totalTokensWithRarityToSupplyRatio > .3) {  
+    if (totalTokensWithRarityToSupplyRatio > .3) {
         logger("WARN", "OPENSEA SKIP BID", `{${rarityRankPercentile.from},${rarityRankPercentile.to}} Skipping bid for ${collectionData.slug} because more than 50% of the tokens are in rarity range.`);
         return;
     }

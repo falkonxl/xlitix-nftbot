@@ -15,7 +15,7 @@ async function getBlurTraitBidAmount(collectionData, traitRarityPercentile) {
         logger("WARN", "SKIP BID", `Skipping ${collectionData.slug} because not enough bid sales history in the zero to ten percentile.`);
         return;
     }
-    if (collectionData.blur?.rankingPercentile?.tenToFifty?.thirtyDayAdjustedAcceptedBidSales < 5 && traitRarityPercentile.to > 10) {
+    if (collectionData.blur?.rankingPercentile?.tenToFifty?.thirtyDayAdjustedAcceptedBidSales < 3 && traitRarityPercentile.to > 10) {
         logger("WARN", "SKIP BID", `Skipping ${collectionData.slug} because not enough bid sales history in the ten to fifty percentile.`);
         return;
     }
@@ -41,7 +41,7 @@ async function getBlurTraitBidAmount(collectionData, traitRarityPercentile) {
         return;
     bidAmount = blurTopBidAmount;
     if (traitRarityPercentile.to <= 10) {
-        if (blurTopBidAmount + 0.01 <= collectionData.blur.sevenDayMedianDailyAverageFloorPrice 
+        if (blurTopBidAmount + 0.01 <= collectionData.blur.sevenDayMedianDailyAverageFloorPrice
             && (collectionData.blur.sevenDayAcceptedBidSales + collectionData.opensea.sevenDayAcceptedBidSales) / (collectionData.blur.sevenDayListingSales + collectionData.opensea.sevenDayListingSales) < 1.2
             && blurFloorPrice * (collectionData.blur.rankingPercentile.oneToTen.thirtyDayAdjustedListingSales < 3 ?
                 collectionData.blur.rankingPercentile.oneToTen.thirtyDayAverageListingSalePriceToFloorPriceRatio :
@@ -61,9 +61,9 @@ async function getBlurTraitBidAmount(collectionData, traitRarityPercentile) {
     else if (traitRarityPercentile.to > 10) {
         // check to see if the bid amount is higher than the 7 day average floor price to protect against price spikes
         if (bidAmount > collectionData.blur.sevenDayMedianDailyAverageFloorPrice)
-            bidAmount = collectionData.blur.sevenDayMedianDailyAverageFloorPrice.toFixed(2) * 1; 
+            bidAmount = collectionData.blur.sevenDayMedianDailyAverageFloorPrice.toFixed(2) * 1;
         let projectedAcceptedBidAmount = (collectionData.blur.rankingPercentile.tenToFifty.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio * blurFloorPrice).toFixed(2) * 1;
-        if (blurTopBidAmount >= bidAmount && blurTopBidAmount + 0.01 <= collectionData.blur.sevenDayMedianDailyAverageFloorPrice 
+        if (blurTopBidAmount >= bidAmount && blurTopBidAmount + 0.01 <= collectionData.blur.sevenDayMedianDailyAverageFloorPrice
             && (collectionData.blur.sevenDayAcceptedBidSales + collectionData.opensea.sevenDayAcceptedBidSales) / (collectionData.blur.sevenDayListingSales + collectionData.opensea.sevenDayListingSales) < 1.2
             && blurFloorPrice * (collectionData.blur.rankingPercentile.tenToFifty.thirtyDayAdjustedListingSales < 5 ?
                 collectionData.blur.rankingPercentile.tenToFifty.thirtyDayAverageListingSalePriceToFloorPriceRatio :
@@ -72,13 +72,12 @@ async function getBlurTraitBidAmount(collectionData, traitRarityPercentile) {
             bidAmount = blurTopBidAmount + (blurBidderCount > 3 ? 0.01 : 0);
             logger("WARN", "INCREASE BID", `{10-50} Adjusting bid higher for ${collectionData.slug} because enough listing sales to justify higher bid.`);
         }
-        if(blurTopBidAmount >= bidAmount && blurBidderCount < 5 && (collectionData.blur.sevenDayAcceptedBidSales + collectionData.opensea.sevenDayAcceptedBidSales) / (collectionData.blur.sevenDayListingSales + collectionData.opensea.sevenDayListingSales) > 1)
-        {
+        if (blurTopBidAmount >= bidAmount && blurBidderCount < 5 && (collectionData.blur.sevenDayAcceptedBidSales + collectionData.opensea.sevenDayAcceptedBidSales) / (collectionData.blur.sevenDayListingSales + collectionData.opensea.sevenDayListingSales) > 1) {
             //bidAmount = blurTopBidAmount - 0.01;
             logger("WARN", "DECREASE BID", `{10-50} Adjusting bid lower for ${collectionData.slug} because bid sales are higher than listing sales and bid pool is not large enough.`);
         }
-        if (bidAmount > projectedAcceptedBidAmount){
-            logger("WARN", "BID ALERT", `{10-50} Bid for ${collectionData.slug} is greater than the projected bid amount {${bidAmount} > ${projectedAcceptedBidAmount}}.`);   
+        if (bidAmount > projectedAcceptedBidAmount) {
+            logger("WARN", "BID ALERT", `{10-50} Bid for ${collectionData.slug} is greater than the projected bid amount {${bidAmount} > ${projectedAcceptedBidAmount}}.`);
             //bidAmount = projectedAcceptedBidAmount;     
         }
         else if (bidAmount < projectedAcceptedBidAmount)
@@ -119,20 +118,20 @@ async function getBlurListPrice(contractAddress, collectionData, rarityRank) {
         blurListPrice = (collectionData.blur.rankingPercentile.tenToTwentyFive.thirtyDayAdjustedListingSales < 5 ?
             collectionData.blur.rankingPercentile.tenToTwentyFive.thirtyDayAverageListingSalePriceToFloorPriceRatio :
             collectionData.blur.rankingPercentile.tenToTwentyFive.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio) * blurListPrice;
-    else if (rarityRankPercentile <= .5){
-        if(collectionData.blur.rankingPercentile.twentyFiveToFifty.thirtyDayAdjustedListingSales < 5)
-        blurListPrice = (collectionData.blur.rankingPercentile.twentyFiveToFifty.thirtyDayAdjustedListingSales < 5 ?
-            (collectionData.blur.rankingPercentile.tenToFifty.thirtyDayAdjustedListingSales < 5 ? 
-                collectionData.blur.rankingPercentile.twentyFiveToFifty.thirtyDayAverageListingSalePriceToFloorPriceRatio :
-                collectionData.blur.rankingPercentile.tenToFifty.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio
-            ) :
-            collectionData.blur.rankingPercentile.twentyFiveToFifty.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio) * blurListPrice;
-        }
+    else if (rarityRankPercentile <= .5) {
+        if (collectionData.blur.rankingPercentile.twentyFiveToFifty.thirtyDayAdjustedListingSales < 5)
+            blurListPrice = (collectionData.blur.rankingPercentile.twentyFiveToFifty.thirtyDayAdjustedListingSales < 5 ?
+                (collectionData.blur.rankingPercentile.tenToFifty.thirtyDayAdjustedListingSales < 5 ?
+                    collectionData.blur.rankingPercentile.twentyFiveToFifty.thirtyDayAverageListingSalePriceToFloorPriceRatio :
+                    collectionData.blur.rankingPercentile.tenToFifty.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio
+                ) :
+                collectionData.blur.rankingPercentile.twentyFiveToFifty.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio) * blurListPrice;
+    }
     // bid sales are higher than listing sales by 50% and rarity percentile is greater than 10% then set the list price to the floor price
-    if(rarityRankPercentile > .25 && (collectionData.blur.sevenDayAcceptedBidSales + collectionData.opensea.sevenDayAcceptedBidSales) / (collectionData.blur.sevenDayListingSales + collectionData.opensea.sevenDayListingSales) > 1.5)
+    if (rarityRankPercentile > .25 && (collectionData.blur.sevenDayAcceptedBidSales + collectionData.opensea.sevenDayAcceptedBidSales) / (collectionData.blur.sevenDayListingSales + collectionData.opensea.sevenDayListingSales) > 1.5)
         blurListPrice = blurFloorPrice;
     blurListPrice = blurListPrice.toFixed(6) * 1;
-    if(blurListPrice < blurFloorPrice)
+    if (blurListPrice < blurFloorPrice)
         blurListPrice = blurFloorPrice.toFixed(6) * 1;
     let blurTokenListings = await getListedBlurTokens(collectionBlurData.collection.collectionSlug);
     if (blurTokenListings == null || blurTokenListings.tokens == null || blurTokenListings.tokens.length == 0)
@@ -153,7 +152,7 @@ async function getBlurListPrice(contractAddress, collectionData, rarityRank) {
             blurListPrice = nextHigherPriceBlurTokenListing.price.amount * 1;
     }
     if (blurListPrice > blurFloorPrice)
-        blurListPrice = (blurListPrice  - 0.000001).toFixed(6) * 1;
+        blurListPrice = (blurListPrice - 0.000001).toFixed(6) * 1;
     else if (blurListPrice <= blurFloorPrice)
         blurListPrice = blurFloorPrice.toFixed(6) * 1;
     return { blurListPrice, rarityMultiplier };
@@ -259,41 +258,50 @@ async function cancelCollectionTraitBids(collection, userBids) {
 async function submitBlurTraitBids(collectionData, bids, rarityRankPercentile) {
     let bethBalance = await getBETHBalance();
     let biddingTraits = collectionData.attributes
-    .filter(a =>
-        a.opensea?.rarityPercentFloor <= rarityRankPercentile.to &&
-        a.opensea?.rarityPercentFloor > rarityRankPercentile.from &&
-        a.opensea?.rarityPercentFloor > 0 &&
-        a.opensea?.count > 0 &&
-        a.opensea?.value?.trim() !== "" &&
-        a.opensea?.count === a.opensea?.countVerification &&
-        a.opensea?.count / collectionData.totalSupply <= 0.5 &&
-        a.blur?.rarityPercentFloor <= rarityRankPercentile.to &&
-        a.blur?.rarityPercentFloor > rarityRankPercentile.from &&
-        a.blur?.rarityPercentFloor > 0 &&
-        a.blur?.count > 0 &&
-        a.blur?.value?.trim() !== "" &&
-        a.blur?.count === a.blur?.countVerification &&
-        a.blur?.count / collectionData.totalSupply <= 0.5
-    )
-    .filter(a =>
-        collectionData.attributes.filter(t => 
-            t.value?.toLowerCase() === a.value?.toLowerCase() &&
-            t.key?.toLowerCase() === a.key?.toLowerCase()
-        ).length == 1
-    );
+        .filter(a =>
+            ((a.opensea?.rarityPercentFloor <= rarityRankPercentile.to &&
+                a.opensea?.rarityPercentFloor > rarityRankPercentile.from) ||
+                (a.opensea?.thirtyDayAverageListingSalePriceToFloorPriceRatio > 1.1 &&
+                    a.opensea?.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio < 1.0 &&
+                    a.opensea?.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio > 0 &&
+                    rarityRankPercentile.from > 10)
+            ) &&
+            a.opensea?.rarityPercentFloor > 0 &&
+            a.opensea?.count > 0 &&
+            a.opensea?.value?.trim() !== "" &&
+            a.opensea?.count === a.opensea?.countVerification &&
+            a.opensea?.count / collectionData.totalSupply <= 0.5 &&
+            ((a.blur?.rarityPercentFloor <= rarityRankPercentile.to &&
+                a.blur?.rarityPercentFloor > rarityRankPercentile.from) ||
+                (a.blur?.thirtyDayAverageListingSalePriceToFloorPriceRatio > 1.1 &&
+                    a.blur?.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio < 1.0 &&
+                    a.blur?.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio > 0 &&
+                    rarityRankPercentile.from > 10)
+            ) &&
+            a.blur?.rarityPercentFloor > 0 &&
+            a.blur?.count > 0 &&
+            a.blur?.value?.trim() !== "" &&
+            a.blur?.count === a.blur?.countVerification &&
+            a.blur?.count / collectionData.totalSupply <= 0.5
+        )
+        .filter(a =>
+            collectionData.attributes.filter(t =>
+                t.value?.toLowerCase() === a.value?.toLowerCase() &&
+                t.key?.toLowerCase() === a.key?.toLowerCase()
+            ).length == 1
+        );
     if (biddingTraits.length == 0) {
         logger("WARN", "SKIP BID", `{${rarityRankPercentile.from},${rarityRankPercentile.to}} Skipping bid for ${collectionData.slug} because no valid traits found.`);
         return;
     }
-    if(biddingTraits.length * 2 > collectionData.attributes.filter(a => a.blur?.count > 0).length)
-    {
+    if (biddingTraits.length * 2 > collectionData.attributes.filter(a => a.blur?.count > 0).length) {
         logger("WARN", "SKIP BID", `{${rarityRankPercentile.from},${rarityRankPercentile.to}} Skipping bid for ${collectionData.slug} because more than 50% of the traits are being bid on.`);
         return;
     }
     // get the total number of tokens with rarity from and to
     let totalTokensWithRarity = biddingTraits.reduce((a, b) => a + b.blur.count, 0);
     let totalTokensWithRarityToSupplyRatio = totalTokensWithRarity / collectionData.totalSupply;
-    if (totalTokensWithRarityToSupplyRatio > .3) {  
+    if (totalTokensWithRarityToSupplyRatio > .3) {
         logger("WARN", "SKIP BID", `{${rarityRankPercentile.from},${rarityRankPercentile.to}} Skipping bid for ${collectionData.slug} because more than 50% of the tokens are in rarity range.`);
         return;
     }
@@ -350,7 +358,7 @@ async function submitBlurTraitBids(collectionData, bids, rarityRankPercentile) {
         }
         else if (currentBid != null) {
             if ((currentBid.openSize ?? 1) > bidQty) {
-                response= await cancelBlurBid(collectionData.contractAddress, { type: currentBid.criteriaType, value: currentBid.criteriaValue }, (currentBid.price * 1), await getBlurAuthToken(), process.env.WALLET_ADDRESS);
+                response = await cancelBlurBid(collectionData.contractAddress, { type: currentBid.criteriaType, value: currentBid.criteriaValue }, (currentBid.price * 1), await getBlurAuthToken(), process.env.WALLET_ADDRESS);
                 if (response.success == true)
                     logger("WARN", "CANCEL BID", `Cancelling trait bid {"${trait.key}":"${trait.value}"} of ${currentBid.price} ETH for ${collectionData.slug} because bid qty doesn't match {${bidQty} -> ${currentBid.openSize ?? 1}}.`);
                 response = await createBlurBid(collectionData, criteria, bidAmount, bidQty);
