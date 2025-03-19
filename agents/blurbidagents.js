@@ -15,7 +15,7 @@ async function runBlurBiddingAgent(collections) {
         && c.blur?.sevenDayFloorPriceIncreases > 2
         && c.blur?.sevenDayAverageDailyAverageFloorPrice > 0.03
         && (c.blur.sevenDayAcceptedBidSales + c.opensea.sevenDayAcceptedBidSales) / (c.blur.sevenDayListingSales + c.opensea.sevenDayListingSales) < 1.5
-        && c.blur?.sevenDayAverageDailyAverageFloorPrice < .5
+        && c.blur?.sevenDayAverageDailyAverageFloorPrice < .75
         && c.opensea?.sevenDayFlaggedAcceptedBidSales < 3
         && userTokens.filter(t => t.contractAddress === c.contractAddress).length < process.env.MAX_NUMBER_OF_NFTS_COLLECTED
         && userTokens.filter(t => t.contractAddress === c.contractAddress && new Date(t.lastSale?.listedAt) > new Date(Date.now() - process.env.COOLDOWN_PERIOD_IN_MINUTES * 6e4)).length == 0

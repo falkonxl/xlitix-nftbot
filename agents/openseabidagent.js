@@ -13,7 +13,7 @@ async function runOpenSeaBiddingAgent(collections) {
         && c.opensea?.sevenDayFloorPriceIncreases > 2 
         && c.opensea?.sevenDayAverageDailyAverageFloorPrice > 0.03 
         && (c.blur.sevenDayAcceptedBidSales + c.opensea.sevenDayAcceptedBidSales) / (c.blur.sevenDayListingSales + c.opensea.sevenDayListingSales) < 1.5
-        && c.opensea?.sevenDayAverageDailyAverageFloorPrice < .5
+        && c.opensea?.sevenDayAverageDailyAverageFloorPrice < .75
         && userTokens.filter(t => t.contractAddress === c.contractAddress).length < process.env.MAX_NUMBER_OF_NFTS_COLLECTED 
         && userTokens.filter(t => t.contractAddress === c.contractAddress && new Date(t.lastSale?.listedAt) > new Date(Date.now() - process.env.COOLDOWN_PERIOD_IN_MINUTES * 6e4)).length == 0
     );
