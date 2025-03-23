@@ -128,7 +128,7 @@ async function getBlurListPrice(contractAddress, collectionData, rarityRank) {
                 collectionData.blur.rankingPercentile.twentyFiveToFifty.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio) * blurListPrice;
     }
     // bid sales are higher than listing sales by 50% and rarity percentile is greater than 10% then set the list price to the floor price
-    if (rarityRankPercentile > .25 && (collectionData.blur.sevenDayAcceptedBidSales + collectionData.opensea.sevenDayAcceptedBidSales) / (collectionData.blur.sevenDayListingSales + collectionData.opensea.sevenDayListingSales) > 1.5)
+    if (rarityRankPercentile > .25 && (collectionData.blur.sevenDayAcceptedBidSales + collectionData.opensea.sevenDayAcceptedBidSales) / (collectionData.blur.sevenDayListingSales + collectionData.opensea.sevenDayListingSales) > 1.75)
         blurListPrice = blurFloorPrice;
     blurListPrice = blurListPrice.toFixed(6) * 1;
     if (blurListPrice < blurFloorPrice)
