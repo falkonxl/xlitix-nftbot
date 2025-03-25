@@ -93,6 +93,10 @@ async function getBlurTraitBidAmount(collectionData, traitRarityPercentile) {
 }
 
 async function getBlurListPrice(contractAddress, collectionData, rarityRank) {
+    if(collectionData == null)
+        return;
+    if(collectionData.blur.sevenDayListingSales == 0)
+        return;
     let collectionBlurData = await getBlurCollection(contractAddress);
     var blurListPrice = collectionBlurData.collection.floorPrice.amount * 1;
     var blurFloorPrice = collectionBlurData.collection.floorPrice.amount * 1;
