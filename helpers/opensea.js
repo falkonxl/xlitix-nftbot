@@ -195,6 +195,10 @@ async function submitOpenSeaTraitBids(collectionData, rarityRankPercentile, weth
 }
 
 async function getOpenSeaListingPrice(collectionData, rarityRank) {
+    if(collectionData == null)
+        return;
+    if(collectionData.opensea.sevenDayListingSales == 0)
+        return;
     let collectionOpenSeaData = await getOpenSeaCollectionStats(collectionData.slug);
     if (collectionOpenSeaData?.total?.floor_price == null || collectionOpenSeaData?.total?.floor_price * 1 <= 0)
         return;
