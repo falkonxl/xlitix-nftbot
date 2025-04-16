@@ -123,6 +123,12 @@ async function getBlurCollection(slug) {
     return response;
 }
 
+async function getBlurCollectionTraits(contractAddress) {
+    let payload = { contractAddress: contractAddress };
+    const response = await sendHttpRequest(`${process.env.RAPID_SHARE_BLURAPI_URL}/collection/traits`, "POST", headers, sleepinterval, 3, payload);
+    return response;
+}
+
 async function getListedBlurTokens(slug) {
     let payload = { collection: slug };
     const response = await sendHttpRequest(`${process.env.RAPID_SHARE_BLURAPI_URL}/collection/tokens/listed`, "POST", headers, sleepinterval, 3, payload);
@@ -185,4 +191,4 @@ async function submitBid(bidSubmission, authToken, walletAddress) {
     return response;
 }
 
-export { getBidFormat, submitBid, getListingFormat, submitListing, getBlurAuthChallenge, getBlurAccessToken, getUserBlurBids, cancelBlurBid, getBlurCollection, getListedBlurTokens, getCollectionExecutableBidsFromBlur, getUserTokensFromBlur, getEvents };
+export { getBlurCollectionTraits, getBidFormat, submitBid, getListingFormat, submitListing, getBlurAuthChallenge, getBlurAccessToken, getUserBlurBids, cancelBlurBid, getBlurCollection, getListedBlurTokens, getCollectionExecutableBidsFromBlur, getUserTokensFromBlur, getEvents };

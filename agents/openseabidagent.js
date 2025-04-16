@@ -1,4 +1,5 @@
 import { submitOpenSeaTraitBids, getWETHBalance } from "../helpers/opensea.js";
+import { getOpenSeaCollectionTraitOffers } from "../apis/openseaapi.js";
 import { getUserTokens } from "../helpers/blur.js";
 import logger from "../helpers/logger.js";
 import 'dotenv/config'
@@ -22,8 +23,9 @@ async function runOpenSeaBiddingAgent(collections) {
     let wethBalance = await getWETHBalance();
     // place bids on Blur for each collection
     for (let i = 0; i < selectedCollections.length; i++) {
-        await submitOpenSeaTraitBids(selectedCollections[i], { from: 0, to: 10}, wethBalance);
-        await submitOpenSeaTraitBids(selectedCollections[i], { from: 10, to: 50}, wethBalance);
+        let collectionTraitOffers = await getOpenSeaCollectionTraitOffers(selectedCollections[i].slug);
+        await submitOpenSeaTraitBids(selectedCollections[i], { from: 0, to: 10}, wethBalance, collectionTraitOffers);
+        await submitOpenSeaTraitBids(selectedCollections[i], { from: 10, to: 50}, wethBalance, collectionTraitOffers);
     }
 }
 

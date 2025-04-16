@@ -1,4 +1,5 @@
 import { submitBlurTraitBids, removeBlurBidsForNoLongerQualifiedCollections, getUserBids, getUserTokens } from "../helpers/blur.js";
+import { getBlurCollectionTraits } from "../apis/blurapi.js";
 import 'dotenv/config'
 import logger from "../helpers/logger.js";
 
@@ -25,8 +26,9 @@ async function runBlurBiddingAgent(collections) {
     await removeBlurBidsForNoLongerQualifiedCollections(selectedCollections, userBids);
     // place bids on Blur for each collection
     for (let i = 0; i < selectedCollections.length; i++) {
-        await submitBlurTraitBids(selectedCollections[i], userBids.filter(b => b.contractAddress == selectedCollections[i].contractAddress), { from: 0, to: 10 });
-        await submitBlurTraitBids(selectedCollections[i], userBids.filter(b => b.contractAddress == selectedCollections[i].contractAddress), { from: 10, to: 50 });
+        let collectionTraitOffers = await getBlurCollectionTraits(selectedCollections[i].contractAddress);
+        await submitBlurTraitBids(selectedCollections[i], userBids.filter(b => b.contractAddress == selectedCollections[i].contractAddress), { from: 0, to: 10 }, collectionTraitOffers);
+        await submitBlurTraitBids(selectedCollections[i], userBids.filter(b => b.contractAddress == selectedCollections[i].contractAddress), { from: 10, to: 50 }, collectionTraitOffers);
     }
 }
 

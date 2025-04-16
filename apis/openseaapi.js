@@ -83,7 +83,6 @@ async function getOpenSeaCollection(slug) {
     }
 }
 
-
 async function getOpenSeaListings(slug) {
     let next = null;
     let listings = [];
@@ -154,9 +153,9 @@ async function createOpenSeaCollectionOffer(slug, offerPrice, offerQuantity, tra
             continue;
         }
         else {
-            if (response.data?.createCollectionOffer == null)
+            if (response.data?.createCollectionOfferActions == null)
                 return;
-            return response.data.createCollectionOffer;
+            return response.data.createCollectionOfferActions;
         }
     }
 }
@@ -220,4 +219,46 @@ async function submitOpenSeaOffer(slug, offerPrice, offerQuantity, trait) {
     }
 }
 
-export { submitOpenSeaListing, getOpenSeaCollectionStats, getOpenSeaCollectionOffers, getOpenSeaListings, submitOpenSeaOffer, getOpenSeaCollection, createOpenSeaCollectionOffer, submitOpenSeaCollectionOffer };
+async function getOpenSeaCollectionTraitOffers(slug) {
+    let cursor = null;
+    let traitOffers = [];
+    let retrycount = 0;
+    while (true) {
+        try {
+            await sleep(openSeaWaitTime);
+            let payload = {
+                slug: slug,
+                cursor: cursor
+            }
+            const response = await sendHttpRequest(`${process.env.RAPID_SHARE_OPENSEAAPI_URL}/collection/attributes/offers`, "POST", headers, sleepinterval, 3, payload);
+            if (response == null || response.errors != null || response.error != null) {
+                if (retrycount++ > 3)
+                    return { httperror: true };
+                await sleep(sleepinterval);
+                continue;
+            }
+            else {
+                if (response.data?.traitOfferAggregates != null || response.data?.traitOfferAggregates?.items != null){
+                    traitOffers = traitOffers.concat(response.data.traitOfferAggregates.items);
+                    cursor = response.data.traitOfferAggregates.nextPageCursor;
+                    if (cursor == null || response.data.traitOfferAggregates.items.length < 100)
+                        break;
+                }
+                else
+                {
+                    if (retrycount++ > 3)
+                        return { processingerror: true };
+                    continue;
+                }
+            }            
+        }
+        catch (err) {
+            if (retrycount++ > 3)
+                break;
+            logger("ERROR", "OPENSEA ERROR", `COLLECTION ${slug} - ${err.message}`);
+        }
+    }
+    return { traitOffers: traitOffers };
+}
+
+export { getOpenSeaCollectionTraitOffers, submitOpenSeaListing, getOpenSeaCollectionStats, getOpenSeaCollectionOffers, getOpenSeaListings, submitOpenSeaOffer, getOpenSeaCollection, createOpenSeaCollectionOffer, submitOpenSeaCollectionOffer };
