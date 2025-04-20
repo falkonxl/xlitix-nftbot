@@ -20,8 +20,6 @@ const runCollectionUpdatedAgentJob = new CronJob('0 * * * *', async () => {
     isCollectionUpdatedAgentRunning = true;
     try {
         collections = await runCollectionUpdaterAgent(collections);
-        if (collections.length == 0)
-            return;
     }
     catch (err) {
         console.error(err);
@@ -35,8 +33,6 @@ const runCollectionAggregatorAgentJob = new CronJob('0 0 * * *', async () => {
     isCollectionUpdatedAgentRunning = true;
     try {
         collections = await runCollectionAggregatorAgent(collections);
-        if (collections.length == 0)
-            return;
     }
     catch (err) {
         console.error(err);
@@ -49,9 +45,8 @@ const runBlurListingAgentJob = new CronJob('*/3 * * * *', async () => {
         return;
     isBlurListingAgentRunning = true;
     try {
-        if (collections.length == 0)
-            return;
-        await runBlurListingAgent(collections);
+        if (collections.length > 0)
+            await runBlurListingAgent(collections);        
     }
     catch (err) {
         console.error(err);
@@ -64,9 +59,8 @@ const runOpenSeaListingAgentJob = new CronJob('*/3 * * * *', async () => {
         return;
     isOpenSeaListingAgentRunning = true;
     try {
-        if (collections.length == 0)
-            return;
-        await runOpenSeaListingAgent(collections);
+        if (collections.length > 0)
+            await runOpenSeaListingAgent(collections);        
     }
     catch (err) {
         console.error(err);
@@ -79,9 +73,8 @@ const runBlurBiddingAgentJob = new CronJob('* * * * *', async () => {
         return;
     isBlurBiddingAgentRunning = true;
     try {
-        if (collections.length == 0)
-            return;
-        await runBlurBiddingAgent(collections);
+        if (collections.length > 0)
+            await runBlurBiddingAgent(collections);        
     }
     catch (err) {
         console.error(err);
@@ -95,9 +88,8 @@ const runOpenSeaBiddingAgentJob = new CronJob('* * * * *', async () => {
     lastOpenSeaBiddingAgentRun = new Date();
     isOpenSeaBiddingAgentRunning = true;
     try {
-        if (collections.length == 0)
-            return;
-        await runOpenSeaBiddingAgent(collections);
+        if (collections.length > 0)
+            await runOpenSeaBiddingAgent(collections);        
     }
     catch (err) {
         console.error(err);

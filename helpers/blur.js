@@ -92,7 +92,10 @@ async function getBlurTraitBidAmount(collectionData, traitRarityPercentile) {
     return traitBid;
 }
 
-async function getBlurListPrice(contractAddress, collectionData, rarityRank) {
+async function getBlurListPrice(contractAddress, collectionData, blurRarityRank, openSeaTokeRarityRank) {
+    let rarityRank = blurRarityRank;
+    if(openSeaTokeRarityRank > blurRarityRank && collectionData.opensea.sevenDayListingSales > 0)
+        rarityRank = openSeaTokeRarityRank;
     if (collectionData == null)
         return;
     if (collectionData.blur.sevenDayListingSales == 0)
@@ -263,30 +266,14 @@ async function submitBlurTraitBids(collectionData, bids, rarityRankPercentile, c
     let bethBalance = await getBETHBalance();
     let biddingTraits = collectionData.attributes
         .filter(a =>
-            ((a.opensea?.rarityPercentFloor <= rarityRankPercentile.to &&
-                a.opensea?.rarityPercentFloor > rarityRankPercentile.from) ||
-                (a.opensea?.thirtyDayAverageListingSalePriceToFloorPriceRatio > 1.1 &&
-                    a.opensea?.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio < 1.0 &&
-                    a.opensea?.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio > 0 &&
-                    rarityRankPercentile.from > 10)
-            ) &&
-            a.opensea?.rarityPercentFloor > 0 &&
-            a.opensea?.count > 0 &&
-            a.opensea?.value?.trim() !== "" &&
-            a.opensea?.count === a.opensea?.countVerification &&
-            a.opensea?.count / collectionData.totalSupply <= 0.5 &&
             ((a.blur?.rarityPercentFloor <= rarityRankPercentile.to &&
-                a.blur?.rarityPercentFloor > rarityRankPercentile.from) ||
-                (a.blur?.thirtyDayAverageListingSalePriceToFloorPriceRatio > 1.1 &&
-                    a.blur?.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio < 1.0 &&
-                    a.blur?.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio > 0 &&
-                    rarityRankPercentile.from > 10)
-            ) &&
+                a.blur?.rarityPercentFloor > rarityRankPercentile.from)
+            &&
             a.blur?.rarityPercentFloor > 0 &&
             a.blur?.count > 0 &&
             a.blur?.value?.trim() !== "" &&
             a.blur?.count === a.blur?.countVerification &&
-            a.blur?.count / collectionData.totalSupply <= 0.5
+            a.blur?.count / collectionData.totalSupply <= 0.5)
         )
         .filter(a =>
             collectionData.attributes.filter(t =>
@@ -306,31 +293,38 @@ async function submitBlurTraitBids(collectionData, bids, rarityRankPercentile, c
     let totalTokensWithRarity = biddingTraits.reduce((a, b) => a + b.blur.count, 0);
     let totalTokensWithRarityToSupplyRatio = totalTokensWithRarity / collectionData.totalSupply;
     if (totalTokensWithRarityToSupplyRatio > .3) {
-        logger("WARN", "SKIP BID", `{${rarityRankPercentile.from},${rarityRankPercentile.to}} Skipping bid for ${collectionData.slug} because more than 50% of the tokens are in rarity range.`);
+        logger("WARN", "SKIP BID", `{${rarityRankPercentile.from},${rarityRankPercentile.to}} Skipping bid for ${collectionData.slug} because more than 30% of the tokens are in rarity range.`);
         return;
     }
     let { bidAmount, projectedBidAmount, projectedListingPrice } = await getBlurTraitBidAmount(collectionData, rarityRankPercentile);
+    let batchSize = 10;
     if (bidAmount == null || bidAmount == 0) {
         // cancel all bids for this collection
-        for (let i = 0; i < biddingTraits.length; i++) {
-            let trait = biddingTraits[i];
-            let traitBids = bids.filter(b => b.criteriaType == "TRAIT" && b.criteriaValue[trait.key] == trait.value);
-            for (let i = 0; i < traitBids.length; i++) {
-                await cancelBlurBid(collectionData.contractAddress, { type: traitBids[i].criteriaType, value: traitBids[i].criteriaValue }, (traitBids[i].price * 1), await getBlurAuthToken(), process.env.WALLET_ADDRESS);
-                logger("WARN", "CANCEL BID", `Cancelling trait bid [${trait.key}:${trait.value}] of ${traitBids[i].price} ETH for ${collectionData.slug} because no valid bid amount generated.`);
-            }
+        for (let i = 0; i < biddingTraits.length; i += batchSize) {
+            const batch = biddingTraits.slice(i, i + batchSize);
+            await Promise.all(batch.map(async (trait) => {
+                let traitBids = bids.filter(b => b.criteriaType == "TRAIT" && b.criteriaValue[trait.key] == trait.value);
+                for (let i = 0; i < traitBids.length; i++) {
+                    const response = await cancelBlurBid(collectionData.contractAddress, { type: traitBids[i].criteriaType, value: traitBids[i].criteriaValue }, (traitBids[i].price * 1), await getBlurAuthToken(), process.env.WALLET_ADDRESS);
+                    if (response?.success == true)
+                        logger("WARN", "CANCEL BID", `Cancelling trait bid [${trait.key}:${trait.value}] of ${traitBids[i].price} ETH for ${collectionData.slug} because no valid bid amount generated.`);
+                }
+            }));
         }
         return;
     }
     else {
         // cancle trait bids that are not the current bid amount
-        for (let i = 0; i < biddingTraits.length; i++) {
-            let trait = biddingTraits[i];
-            let traitBids = bids.filter(b => b.criteriaType == "TRAIT" && b.criteriaValue[trait.key] == trait.value && (b.price * 1) != bidAmount);
-            for (let i = 0; i < traitBids.length; i++) {
-                await cancelBlurBid(collectionData.contractAddress, { type: traitBids[i].criteriaType, value: traitBids[i].criteriaValue }, (traitBids[i].price * 1), await getBlurAuthToken(), process.env.WALLET_ADDRESS);
-                logger("WARN", "CANCEL BID", `Cancelling trait bid [${trait.key}:${trait.value}] of ${traitBids[i].price} ETH for ${collectionData.slug} because bid amount has changed {${traitBids[i].price} -> ${bidAmount} ETH}.`);
-            }
+        for (let i = 0; i < biddingTraits.length; i += batchSize) {
+            const batch = biddingTraits.slice(i, i + batchSize);
+            await Promise.all(batch.map(async (trait) => {
+                let traitBids = bids.filter(b => b.criteriaType == "TRAIT" && b.criteriaValue[trait.key] == trait.value && (b.price * 1) != bidAmount);
+                for (let i = 0; i < traitBids.length; i++) {
+                    const response = await cancelBlurBid(collectionData.contractAddress, { type: traitBids[i].criteriaType, value: traitBids[i].criteriaValue }, (traitBids[i].price * 1), await getBlurAuthToken(), process.env.WALLET_ADDRESS);
+                    if (response?.success == true)
+                        logger("WARN", "CANCEL BID", `Cancelling trait bid [${trait.key}:${trait.value}] of ${traitBids[i].price} ETH for ${collectionData.slug} because bid amount has changed {${traitBids[i].price} -> ${bidAmount} ETH}.`);
+                }
+            }));
         }
         // if bid amount is higher that balance then skip bidding
 
@@ -339,65 +333,55 @@ async function submitBlurTraitBids(collectionData, bids, rarityRankPercentile, c
         logger("WARN", "SKIP BID", `Skipping bid for ${collectionData.slug} because bid amount is higher than balance {${bidAmount} > ${bethBalance.toFixed(2)}}.`);
         return;
     }
-    for (let i = 0; i < biddingTraits.length; i++) {
-        let traitBidAmount = bidAmount;
-        let response;
-        let trait = biddingTraits[i];
-        if (collectionTraits?.traits != null && collectionTraits?.traits[trait.key][trait.value] != null) {
-            let bestTraitOffer = collectionTraits?.traits[trait.key][trait.value].bestBidPrice;
-            if (bestTraitOffer != null && bestTraitOffer.unit == "ETH") {
-                if (bestTraitOffer <= projectedBidAmount.toFixed(2) * 1 && bestTraitOffer * 1.05 < projectedListingPrice && bestTraitOffer.amount > bidAmount)
-                    traitBidAmount = bestTraitOffer.amount;
+    for (let i = 0; i < biddingTraits.length; i += batchSize) {
+        const batch = biddingTraits.slice(i, i + batchSize);
+        await Promise.all(batch.map(async (trait) => {
+            let traitBidAmount = bidAmount;
+            let response;
+            if (collectionTraits?.traits != null && collectionTraits?.traits[trait.key] != null && collectionTraits?.traits[trait.key][trait.value] != null) {
+                let bestTraitOffer = collectionTraits?.traits[trait.key][trait.value].bestBidPrice;
+                if (bestTraitOffer != null && bestTraitOffer.unit == "ETH") {
+                    if (bestTraitOffer <= projectedBidAmount.toFixed(2) * 1 && bestTraitOffer * 1.05 < projectedListingPrice && bestTraitOffer.amount > bidAmount)
+                        traitBidAmount = bestTraitOffer.amount;
+                }
             }
-        }
-        for (let i = 0; i < biddingTraits.length; i++) {
-            let trait = biddingTraits[i];
             let traitBids = bids.filter(b => b.criteriaType == "TRAIT" && b.criteriaValue[trait.key] == trait.value && (b.price * 1) != traitBidAmount);
             for (let i = 0; i < traitBids.length; i++) {
                 await cancelBlurBid(collectionData.contractAddress, { type: traitBids[i].criteriaType, value: traitBids[i].criteriaValue }, (traitBids[i].price * 1), await getBlurAuthToken(), process.env.WALLET_ADDRESS);
                 logger("WARN", "CANCEL BID", `Cancelling trait bid [${trait.key}:${trait.value}] of ${traitBids[i].price} ETH for ${collectionData.slug} because bid amount has changed {${traitBids[i].price} -> ${traitBidAmount} ETH}.`);
             }
-        }
-        let currentBid = null;
-        let traitBids = bids.filter(b => b.criteriaType == "TRAIT" && b.criteriaValue[trait.key] == trait.value);
-        if (traitBids.length > 0)
-            currentBid = traitBids.filter(b => b.price == traitBidAmount)[0];
-        const criteria = { type: "TRAIT", value: { [trait.key]: trait.value } };
-        // determine the maximum number of bids to place
-        let bidAmountMultiplier = 1.0;
-        if (biddingTraits.length > 100)
-            bidAmountMultiplier = 2.0;
-        let bidQty = Math.floor(bethBalance / (traitBidAmount * bidAmountMultiplier));
-        if (bidQty > process.env.MAX_NUMBER_OF_BIDS)
-            bidQty = process.env.MAX_NUMBER_OF_BIDS * 1;
-        if (bidQty == 0)
-            bidQty = 1;
-
-        if (currentBid == null) {
-            response = await createBlurBid(collectionData, criteria, traitBidAmount, bidQty);
-            if (response == true)
-                logger("INFO", "PLACE BID", `Placing a new trait bid {"${trait.key}":"${trait.value}"} of ${traitBidAmount} ETH with quantity ${bidQty} (using multiplier of ${bidAmountMultiplier}) for ${collectionData.slug}.`);
-        }
-        else if (currentBid != null) {
-            if ((currentBid.openSize ?? 1) > bidQty) {
-                response = await cancelBlurBid(collectionData.contractAddress, { type: currentBid.criteriaType, value: currentBid.criteriaValue }, (currentBid.price * 1), await getBlurAuthToken(), process.env.WALLET_ADDRESS);
-                if (response.success == true)
-                    logger("WARN", "CANCEL BID", `Cancelling trait bid {"${trait.key}":"${trait.value}"} of ${currentBid.price} ETH for ${collectionData.slug} because bid qty doesn't match {${bidQty} -> ${currentBid.openSize ?? 1}}.`);
+            let currentBid = bids.filter(b => b.criteriaType == "TRAIT" && b.criteriaValue[trait.key] == trait.value && b.price == traitBidAmount)[0];
+            const criteria = { type: "TRAIT", value: { [trait.key]: trait.value } };
+            // determine the maximum number of bids to place
+            let bidAmountMultiplier = 1.0;
+            if (biddingTraits.length > 100)
+                bidAmountMultiplier = 2.0;
+            let bidQty = Math.floor(bethBalance / (traitBidAmount * bidAmountMultiplier));
+            if (bidQty > process.env.MAX_NUMBER_OF_BIDS)
+                bidQty = process.env.MAX_NUMBER_OF_BIDS * 1;
+            if (bidQty == 0)
+                bidQty = 1;
+            if (currentBid == null) {
                 response = await createBlurBid(collectionData, criteria, traitBidAmount, bidQty);
                 if (response == true)
-                    logger("INFO", "PLACE BID", `Placing a replacement bid qty of ${bidQty} (using multiplier of ${bidAmountMultiplier}) on a trait bid {"${trait.key}":"${trait.value}"} of ${traitBidAmount} ETH for ${collectionData.slug}.`);
+                    logger("INFO", "PLACE BID", `Placing a new trait bid {"${trait.key}":"${trait.value}"} of ${traitBidAmount} ETH with quantity ${bidQty} (using multiplier of ${bidAmountMultiplier}) for ${collectionData.slug}.`);
             }
-            else if ((currentBid.openSize ?? 1) < bidQty) {
-                response = await createBlurBid(collectionData, criteria, traitBidAmount, bidQty - (currentBid.openSize ?? 1));
-                if (response == true)
-                    logger("INFO", "PLACE BID", `Adjusting bid qty by ${bidQty - (currentBid.openSize ?? 1)} (using multiplier of ${bidAmountMultiplier}) on a trait bid {"${trait.key}":"${trait.value}"} of ${traitBidAmount} ETH for ${collectionData.slug}.`);
+            else if (currentBid != null) {
+                if ((currentBid.openSize ?? 1) > bidQty) {
+                    response = await cancelBlurBid(collectionData.contractAddress, { type: currentBid.criteriaType, value: currentBid.criteriaValue }, (currentBid.price * 1), await getBlurAuthToken(), process.env.WALLET_ADDRESS);
+                    if (response.success == true)
+                        logger("WARN", "CANCEL BID", `Cancelling trait bid {"${trait.key}":"${trait.value}"} of ${currentBid.price} ETH for ${collectionData.slug} because bid qty doesn't match {${bidQty} -> ${currentBid.openSize ?? 1}}.`);
+                    response = await createBlurBid(collectionData, criteria, traitBidAmount, bidQty);
+                    if (response == true)
+                        logger("INFO", "PLACE BID", `Placing a replacement bid qty of ${bidQty} (using multiplier of ${bidAmountMultiplier}) on a trait bid {"${trait.key}":"${trait.value}"} of ${traitBidAmount} ETH for ${collectionData.slug}.`);
+                }
+                else if ((currentBid.openSize ?? 1) < bidQty) {
+                    response = await createBlurBid(collectionData, criteria, traitBidAmount, bidQty - (currentBid.openSize ?? 1));
+                    if (response == true)
+                        logger("INFO", "PLACE BID", `Adjusting bid qty by ${bidQty - (currentBid.openSize ?? 1)} (using multiplier of ${bidAmountMultiplier}) on a trait bid {"${trait.key}":"${trait.value}"} of ${traitBidAmount} ETH for ${collectionData.slug}.`);
+                }
             }
-        }
-        //if (error != null)
-        //    if (error.message == 'Balance over-utilized') {
-        //        logger("WARN", "STOP BID", `Stopping bid for ${collectionData.slug} because balance is over-utilized.`);
-        //        break;
-        //    }
+        }));
     }
 }
 
