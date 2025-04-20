@@ -120,7 +120,7 @@ async function getOpenSeaTraitBidAmount(collectionData, traitRarityPercentile) {
 async function submitOpenSeaTraitBids(collectionData, rarityRankPercentile, wethBalance, collectionTraitOffers) {
     let biddingTraits = collectionData.attributes
         .filter(a =>
-        ((a.opensea?.rarityPercentFloor <= rarityRankPercentile.to &&
+        (((a.opensea?.rarityPercentFloor <= rarityRankPercentile.to &&
             a.opensea?.rarityPercentFloor > rarityRankPercentile.from) ||
             (a.opensea?.thirtyDayAverageListingSalePriceToFloorPriceRatio > 1.1 &&
                 a.opensea?.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio < 1.0 &&
@@ -131,19 +131,7 @@ async function submitOpenSeaTraitBids(collectionData, rarityRankPercentile, weth
         a.opensea?.count > 0 &&
         a.opensea?.value?.trim() !== "" &&
         a.opensea?.count === a.opensea?.countVerification &&
-        a.opensea?.count / collectionData.totalSupply <= 0.5 &&
-        ((a.blur?.rarityPercentFloor <= rarityRankPercentile.to &&
-            a.blur?.rarityPercentFloor > rarityRankPercentile.from) ||
-            (a.blur?.thirtyDayAverageListingSalePriceToFloorPriceRatio > 1.1 &&
-                a.blur?.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio < 1.0 &&
-                a.blur?.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio > 0 &&
-                rarityRankPercentile.from > 10)
-        ) &&
-        a.blur?.rarityPercentFloor > 0 &&
-        a.blur?.count > 0 &&
-        a.blur?.value?.trim() !== "" &&
-        a.blur?.count === a.blur?.countVerification &&
-        a.blur?.count / collectionData.totalSupply <= 0.5
+        a.opensea?.count / collectionData.totalSupply <= 0.5)
     )
     .filter(a =>
             collectionData.attributes.filter(t =>
@@ -175,42 +163,52 @@ async function submitOpenSeaTraitBids(collectionData, rarityRankPercentile, weth
     let batchSize = 50;
     for (let i = 0; i < biddingTraits.length; i += batchSize) {
         const batch = biddingTraits.slice(i, i + batchSize);
+        logger("LOG", "OPENSEA BIDDING AGENT", `Submitting bids for ${collectionData.slug} (${rarityRankPercentile.from}-${rarityRankPercentile.to}) for ${batch.length} traits...`);
         await Promise.all(batch.map(async (trait) => {
-            let traitBidAmount = bidAmount;
-            if(collectionTraitOffers?.traitOffers != null && collectionTraitOffers?.traitOffers.length > 0) {
-                let traitOffer = collectionTraitOffers?.traitOffers.filter(o => o.traitType.toLowerCase() == trait.key.toLowerCase() && o.traitValue.toLowerCase() == trait.value.toLowerCase())[0];
-                if(traitOffer != null) {
-                    if(traitOffer.offerPrice?.token?.contractAddress?.toLowerCase()  == process.env.WETH_CONTRACT_ADDRESS.toLowerCase()) {
-                        let rounding = getOpenSeaRounding(traitOffer.offerPrice?.token?.unit);
-                        let newBidAmount = traitOffer.offerPrice?.token?.unit.toFixed(rounding.digits) * 1;
-                        if (newBidAmount <= projectedBidAmount.toFixed(rounding.digits) * 1 && newBidAmount * 1.05 < projectedListingPrice && newBidAmount > traitBidAmount)
-                            traitBidAmount = newBidAmount;
-                    }                
+            try{
+                let traitBidAmount = bidAmount;
+                if(collectionTraitOffers?.traitOffers != null && collectionTraitOffers?.traitOffers.length > 0) {
+                    let traitOffer = collectionTraitOffers?.traitOffers.filter(o => o.traitType.toLowerCase() == trait.key.toLowerCase() && o.traitValue.toLowerCase() == trait.value.toLowerCase())[0];
+                    if(traitOffer != null) {
+                        if(traitOffer.offerPrice?.token?.contractAddress?.toLowerCase()  == process.env.WETH_CONTRACT_ADDRESS.toLowerCase()) {
+                            let rounding = getOpenSeaRounding(traitOffer.offerPrice?.token?.unit);
+                            let newBidAmount = traitOffer.offerPrice?.token?.unit.toFixed(rounding.digits) * 1;
+                            if (newBidAmount <= projectedBidAmount.toFixed(rounding.digits) * 1 && newBidAmount * 1.05 < projectedListingPrice && newBidAmount > traitBidAmount)
+                                traitBidAmount = newBidAmount;
+                        }                
+                    }
+                }            
+                const traits = [];
+                traits.push({ key: trait.key, value: trait.value });
+                const offer = await createOpenSeaCollectionOffer(collectionData.slug, traitBidAmount, 1, traits);
+                if (offer == null || offer.httperror != null) {
+                    logger("ERROR", "OPENSEA BID ERROR", `Error submitting bid for ${collectionData.slug}`);
+                    return;
                 }
+                if (offer.errors != null)
+                    for (let i = 0; i < offer.errors.length; i++) {
+                        logger("ERROR", "OPENSEA BID ERROR", `Error submitting bid for ${collectionData.slug} (${trait.key}:${trait.value}) for ${traitBidAmount} ETH. Error: ${offer.errors[i].message}`);
+                    }
+                if (offer.actions != null && offer.actions.length == 1) {
+                    const signatureRequest = JSON.parse(offer.actions[0].signatureRequest.message);
+                    const signature = await wallet.signTypedData(signatureRequest.domain, signatureRequest.types, signatureRequest.message)
+                    const submission = await submitOpenSeaCollectionOffer(collectionData.slug, traits, offer.actions[0].order, signature);
+                    if (submission?.errorsV2 != null)
+                        logger("ERROR", "OPENSEA BID ERROR", `Error submitting bid for ${collectionData.slug} (${trait.key}:${trait.value}) for ${traitBidAmount} ETH.}`);
+                }
+            }
+            catch (error) {
+                logger("ERROR", "OPENSEA BID ERROR", `Error submitting bid for ${collectionData.slug} (${trait.key}:${trait.value}) for ${bidAmount} ETH. ${error.message}`);
             }            
-            const traits = [];
-            traits.push({ key: trait.key, value: trait.value });
-            const offer = await createOpenSeaCollectionOffer(collectionData.slug, traitBidAmount, 1, traits);
-            if (offer == null || offer.httperror != null) {
-                logger("ERROR", "OPENSEA BID ERROR", `Error submitting bid for ${collectionData.slug}`);
-                return;
-            }
-            if (offer.errors != null)
-                for (let i = 0; i < offer.errors.length; i++) {
-                    logger("ERROR", "OPENSEA BID ERROR", `Error submitting bid for ${collectionData.slug} (${trait.key}:${trait.value}) for ${traitBidAmount} ETH. Error: ${offer.errors[i].message}`);
-                }
-            if (offer.actions != null && offer.actions.length == 1) {
-                const signatureRequest = JSON.parse(offer.actions[0].signatureRequest.message);
-                const signature = await wallet.signTypedData(signatureRequest.domain, signatureRequest.types, signatureRequest.message)
-                const submission = await submitOpenSeaCollectionOffer(collectionData.slug, traits, offer.actions[0].order, signature);
-                if (submission?.errorsV2 != null)
-                    logger("ERROR", "OPENSEA BID ERROR", `Error submitting bid for ${collectionData.slug} (${trait.key}:${trait.value}) for ${traitBidAmount} ETH.}`);
-            }
         }));
+        logger("LOG", "OPENSEA BIDDING AGENT", `Bids submitted for ${collectionData.slug} (${rarityRankPercentile.from}-${rarityRankPercentile.to}) for ${batch.length} traits.`);
     }
 }
 
-async function getOpenSeaListingPrice(collectionData, rarityRank) {
+async function getOpenSeaListingPrice(collectionData, blurRarityRank, openSeaTokeRarityRank) {
+    let rarityRank = openSeaTokeRarityRank;
+    if(blurRarityRank > openSeaTokeRarityRank  && collectionData.blur.sevenDayListingSales > 0)
+        rarityRank = blurRarityRank;
     if(collectionData == null)
         return;
     if(collectionData.opensea.sevenDayListingSales == 0)

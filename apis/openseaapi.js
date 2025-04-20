@@ -239,6 +239,8 @@ async function getOpenSeaCollectionTraitOffers(slug) {
             }
             else {
                 if (response.data?.traitOfferAggregates != null || response.data?.traitOfferAggregates?.items != null){
+                    if(cursor != null && cursor == response.data.traitOfferAggregates.nextPageCursor)
+                        break;
                     traitOffers = traitOffers.concat(response.data.traitOfferAggregates.items);
                     cursor = response.data.traitOfferAggregates.nextPageCursor;
                     if (cursor == null || response.data.traitOfferAggregates.items.length < 100)
@@ -261,4 +263,27 @@ async function getOpenSeaCollectionTraitOffers(slug) {
     return { traitOffers: traitOffers };
 }
 
-export { getOpenSeaCollectionTraitOffers, submitOpenSeaListing, getOpenSeaCollectionStats, getOpenSeaCollectionOffers, getOpenSeaListings, submitOpenSeaOffer, getOpenSeaCollection, createOpenSeaCollectionOffer, submitOpenSeaCollectionOffer };
+async function getOpenSeaToken(contractAddress, tokenId) {
+    let retrycount = 0;
+    let payload = {
+        contractAddress: contractAddress,
+        tokenId: tokenId
+    }
+    while (true) {
+        const response = await sendHttpRequest(`${process.env.RAPID_SHARE_OPENSEAAPI_URL}/collection/token`, "POST", headers, sleepinterval, 3, payload);
+        if (response == null || response.errors != null || response.error != null) {
+            retrycount++;
+            if (retrycount > 3)
+                return { httperror: true };
+            await sleep(sleepinterval);
+            continue;
+        }
+        else {
+            if (response.data?.itemsByIdentifiers == null)
+                return;
+            return response.data.itemsByIdentifiers;
+        }
+    }
+}
+
+export { getOpenSeaToken, getOpenSeaCollectionTraitOffers, submitOpenSeaListing, getOpenSeaCollectionStats, getOpenSeaCollectionOffers, getOpenSeaListings, submitOpenSeaOffer, getOpenSeaCollection, createOpenSeaCollectionOffer, submitOpenSeaCollectionOffer };

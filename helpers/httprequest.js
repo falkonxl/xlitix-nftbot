@@ -30,6 +30,7 @@ async function sendHttpRequest(url, method, headers, sleepinterval, retrycount, 
             }
             else if(response?.status == 429){
                 logger("ERROR", "API ERROR", `RATE LIMITED [429]: ${url}`);
+                await sleep(sleepinterval);
                 retrynumber++;
                 continue;
             }
@@ -42,6 +43,24 @@ async function sendHttpRequest(url, method, headers, sleepinterval, retrycount, 
         if (json == null || isEmptyObject(json))
         {
             logger("ERROR", "API ERROR", `INVALID JSON: ${url}`);
+            retrynumber++;
+            continue;
+        }
+        if(json.errors != null)
+        {
+            for(let i = 0; i < json.errors.length; i++)
+            {
+                if(json.errors[i].message == "Too Many Requests"){
+                    //logger("ERROR", "API ERROR", `RATE LIMITED [429]: ${url}`);
+                    await sleep(sleepinterval);
+                    retrynumber++;
+                    continue;
+                }
+            }
+        }   
+        if(json.statusCode == 401)
+        {
+            //logger("ERROR", "API ERROR", `UNAUTHORIZED ACCESS [401]: ${url}`);
             retrynumber++;
             continue;
         }
