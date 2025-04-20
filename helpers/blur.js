@@ -341,7 +341,7 @@ async function submitBlurTraitBids(collectionData, bids, rarityRankPercentile, c
             if (collectionTraits?.traits != null && collectionTraits?.traits[trait.key] != null && collectionTraits?.traits[trait.key][trait.value] != null) {
                 let bestTraitOffer = collectionTraits?.traits[trait.key][trait.value].bestBidPrice;
                 if (bestTraitOffer != null && bestTraitOffer.unit == "ETH") {
-                    if (bestTraitOffer <= projectedBidAmount.toFixed(2) * 1 && bestTraitOffer * 1.05 < projectedListingPrice && bestTraitOffer.amount > bidAmount)
+                    if (bestTraitOffer <= projectedBidAmount.toFixed(2) * 1 && bestTraitOffer * 1.05 < projectedListingPrice && bestTraitOffer.amount > bidAmount && bestTraitOffer.amount <= collectionData.blur.sevenDayMedianDailyAverageFloorPrice)
                         traitBidAmount = bestTraitOffer.amount;
                 }
             }

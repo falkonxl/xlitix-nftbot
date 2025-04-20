@@ -173,7 +173,7 @@ async function submitOpenSeaTraitBids(collectionData, rarityRankPercentile, weth
                         if(traitOffer.offerPrice?.token?.contractAddress?.toLowerCase()  == process.env.WETH_CONTRACT_ADDRESS.toLowerCase()) {
                             let rounding = getOpenSeaRounding(traitOffer.offerPrice?.token?.unit);
                             let newBidAmount = traitOffer.offerPrice?.token?.unit.toFixed(rounding.digits) * 1;
-                            if (newBidAmount <= projectedBidAmount.toFixed(rounding.digits) * 1 && newBidAmount * 1.05 < projectedListingPrice && newBidAmount > traitBidAmount)
+                            if (newBidAmount <= projectedBidAmount.toFixed(rounding.digits) * 1 && newBidAmount * 1.05 < projectedListingPrice && newBidAmount > traitBidAmount && newBidAmount <= collectionData.opensea.sevenDayMedianDailyAverageFloorPrice)
                                 traitBidAmount = newBidAmount;
                         }                
                     }
