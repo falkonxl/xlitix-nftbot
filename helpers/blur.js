@@ -135,7 +135,7 @@ async function getBlurListPrice(contractAddress, collectionData, blurRarityRank,
                 collectionData.blur.rankingPercentile.twentyFiveToFifty.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio) * blurListPrice;
     }
     // bid sales are higher than listing sales by 50% and rarity percentile is greater than 10% then set the list price to the floor price
-    if (rarityRankPercentile > .25 && (collectionData.blur.sevenDayAcceptedBidSales + collectionData.opensea.sevenDayAcceptedBidSales) / (collectionData.blur.sevenDayListingSales + collectionData.opensea.sevenDayListingSales) > 1.5)
+    if (rarityRankPercentile > .25 && (collectionData.blur.sevenDayAcceptedBidSales + collectionData.opensea.sevenDayAcceptedBidSales - collectionData.blur.oneDayAcceptedBidSales - collectionData.opensea.oneDayAcceptedBidSales) / (collectionData.blur.sevenDayListingSales + collectionData.opensea.sevenDayListingSales - collectionData.blur.oneDayListingSales - collectionData.opensea.oneDayListingSales) > 1.5)
         blurListPrice = blurFloorPrice;
     blurListPrice = blurListPrice.toFixed(6) * 1;
     if (blurListPrice < blurFloorPrice)
@@ -266,8 +266,11 @@ async function submitBlurTraitBids(collectionData, bids, rarityRankPercentile, c
     let bethBalance = await getBETHBalance();
     let biddingTraits = collectionData.attributes
         .filter(a =>
-            ((a.blur?.rarityPercentFloor <= rarityRankPercentile.to &&
-                a.blur?.rarityPercentFloor > rarityRankPercentile.from)
+            (((a.blur?.rarityPercentFloor <= rarityRankPercentile.to &&
+                a.blur?.rarityPercentFloor > rarityRankPercentile.from) ||
+                (a.blur?.thirtyDayAverageListingSalePriceToFloorPriceRatio > 1.1 &&
+                    rarityRankPercentile.from >= 10)
+            )
             &&
             a.blur?.rarityPercentFloor > 0 &&
             a.blur?.count > 0 &&
@@ -341,7 +344,7 @@ async function submitBlurTraitBids(collectionData, bids, rarityRankPercentile, c
             if (collectionTraits?.traits != null && collectionTraits?.traits[trait.key] != null && collectionTraits?.traits[trait.key][trait.value] != null) {
                 let bestTraitOffer = collectionTraits?.traits[trait.key][trait.value].bestBidPrice;
                 if (bestTraitOffer != null && bestTraitOffer.unit == "ETH") {
-                    if (bestTraitOffer <= projectedBidAmount.toFixed(2) * 1 && bestTraitOffer * 1.05 < projectedListingPrice && bestTraitOffer.amount > bidAmount && bestTraitOffer.amount <= collectionData.blur.sevenDayMedianDailyAverageFloorPrice)
+                    if (bestTraitOffer.amount <= projectedBidAmount.toFixed(2) * 1 && bestTraitOffer.amount * 1.05 < projectedListingPrice && bestTraitOffer.amount > bidAmount && bestTraitOffer.amount <= collectionData.blur.sevenDayMedianDailyAverageFloorPrice)
                         traitBidAmount = bestTraitOffer.amount;
                 }
             }
