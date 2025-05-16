@@ -114,7 +114,7 @@ async function getOpenSeaTraitBidAmount(collectionData, traitRarityPercentile) {
         }
     }
     let rounding = getOpenSeaRounding(bidAmount); // recalculate rounding based on new bid amount after increment
-    return { bidAmount: bidAmount.toFixed(rounding.digits) * 1, projectedListingPrice: (listingFloorPriceMultiplier * openSeaFloorPrice).toFixed(rounding.digits) * 1,  projectedBidAmount: (bidFloorPriceMultiplier * openSeaFloorPrice).toFixed(rounding.digits) * 1 };
+    return { bidAmount: bidAmount.toFixed(rounding.digits) * 1, projectedListingPrice: (listingFloorPriceMultiplier * openSeaFloorPrice).toFixed(rounding.digits) * 1, projectedBidAmount: (bidFloorPriceMultiplier * openSeaFloorPrice).toFixed(rounding.digits) * 1 };
 }
 
 async function submitOpenSeaTraitBids(collectionData, rarityRankPercentile, wethBalance, collectionTraitOffers) {
@@ -125,15 +125,15 @@ async function submitOpenSeaTraitBids(collectionData, rarityRankPercentile, weth
             (a.opensea?.thirtyDayAverageListingSalePriceToFloorPriceRatio > 1.1 &&
                 a.opensea?.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio < 1.0 &&
                 a.opensea?.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio > 0 &&
-                rarityRankPercentile.from > 10)
+                rarityRankPercentile.from >= 10)
         ) &&
-        a.opensea?.rarityPercentFloor > 0 &&
-        a.opensea?.count > 0 &&
-        a.opensea?.value?.trim() !== "" &&
-        a.opensea?.count === a.opensea?.countVerification &&
-        a.opensea?.count / collectionData.totalSupply <= 0.5)
-    )
-    .filter(a =>
+            a.opensea?.rarityPercentFloor > 0 &&
+            a.opensea?.count > 0 &&
+            a.opensea?.value?.trim() !== "" &&
+            a.opensea?.count === a.opensea?.countVerification &&
+            a.opensea?.count / collectionData.totalSupply <= 0.5)
+        )
+        .filter(a =>
             collectionData.attributes.filter(t =>
                 t.value?.toLowerCase() === a.value?.toLowerCase() &&
                 t.key?.toLowerCase() === a.key?.toLowerCase()
@@ -165,19 +165,19 @@ async function submitOpenSeaTraitBids(collectionData, rarityRankPercentile, weth
         const batch = biddingTraits.slice(i, i + batchSize);
         logger("LOG", "OPENSEA BIDDING AGENT", `Submitting bids for ${collectionData.slug} (${rarityRankPercentile.from}-${rarityRankPercentile.to}) for ${batch.length} traits...`);
         await Promise.all(batch.map(async (trait) => {
-            try{
+            try {
                 let traitBidAmount = bidAmount;
-                if(collectionTraitOffers?.traitOffers != null && collectionTraitOffers?.traitOffers.length > 0) {
+                if (collectionTraitOffers?.traitOffers != null && collectionTraitOffers?.traitOffers.length > 0) {
                     let traitOffer = collectionTraitOffers?.traitOffers.filter(o => o.traitType.toLowerCase() == trait.key.toLowerCase() && o.traitValue.toLowerCase() == trait.value.toLowerCase())[0];
-                    if(traitOffer != null) {
-                        if(traitOffer.offerPrice?.token?.contractAddress?.toLowerCase()  == process.env.WETH_CONTRACT_ADDRESS.toLowerCase()) {
+                    if (traitOffer != null) {
+                        if (traitOffer.offerPrice?.token?.contractAddress?.toLowerCase() == process.env.WETH_CONTRACT_ADDRESS.toLowerCase()) {
                             let rounding = getOpenSeaRounding(traitOffer.offerPrice?.token?.unit);
                             let newBidAmount = traitOffer.offerPrice?.token?.unit.toFixed(rounding.digits) * 1;
                             if (newBidAmount <= projectedBidAmount.toFixed(rounding.digits) * 1 && newBidAmount * 1.05 < projectedListingPrice && newBidAmount > traitBidAmount && newBidAmount <= collectionData.opensea.sevenDayMedianDailyAverageFloorPrice)
                                 traitBidAmount = newBidAmount;
-                        }                
+                        }
                     }
-                }            
+                }
                 const traits = [];
                 traits.push({ key: trait.key, value: trait.value });
                 const offer = await createOpenSeaCollectionOffer(collectionData.slug, traitBidAmount, 1, traits);
@@ -199,7 +199,7 @@ async function submitOpenSeaTraitBids(collectionData, rarityRankPercentile, weth
             }
             catch (error) {
                 logger("ERROR", "OPENSEA BID ERROR", `Error submitting bid for ${collectionData.slug} (${trait.key}:${trait.value}) for ${bidAmount} ETH. ${error.message}`);
-            }            
+            }
         }));
         logger("LOG", "OPENSEA BIDDING AGENT", `Bids submitted for ${collectionData.slug} (${rarityRankPercentile.from}-${rarityRankPercentile.to}) for ${batch.length} traits.`);
     }
@@ -207,11 +207,11 @@ async function submitOpenSeaTraitBids(collectionData, rarityRankPercentile, weth
 
 async function getOpenSeaListingPrice(collectionData, blurRarityRank, openSeaTokeRarityRank) {
     let rarityRank = openSeaTokeRarityRank;
-    if(blurRarityRank > openSeaTokeRarityRank  && collectionData.blur.sevenDayListingSales > 0)
+    if (blurRarityRank > openSeaTokeRarityRank && collectionData.blur.sevenDayListingSales > 0)
         rarityRank = blurRarityRank;
-    if(collectionData == null)
+    if (collectionData == null)
         return;
-    if(collectionData.opensea.sevenDayListingSales == 0)
+    if (collectionData.opensea.sevenDayListingSales == 0)
         return;
     let collectionOpenSeaData = await getOpenSeaCollectionStats(collectionData.slug);
     if (collectionOpenSeaData?.total?.floor_price == null || collectionOpenSeaData?.total?.floor_price * 1 <= 0)
@@ -256,7 +256,7 @@ async function getOpenSeaListingPrice(collectionData, blurRarityRank, openSeaTok
             ) :
             collectionData.opensea.rankingPercentile.twentyFiveToFifty.thirtyDayAdjustedAverageListingSalePriceToFloorPriceRatio) * openSeaListingPrice;
     // bid sales are higher than listing sales by 50% and rarity percentile is greater than 10% then set the list price to the floor price
-    if (rarityRankPercentile > .25 && (collectionData.blur.sevenDayAcceptedBidSales + collectionData.opensea.sevenDayAcceptedBidSales) / (collectionData.blur.sevenDayListingSales + collectionData.opensea.sevenDayListingSales) > 1.5)
+    if (rarityRankPercentile > .25 && (collectionData.blur.sevenDayAcceptedBidSales + collectionData.opensea.sevenDayAcceptedBidSales - collectionData.blur.oneDayAcceptedBidSales - collectionData.opensea.oneDayAcceptedBidSales) / (collectionData.blur.sevenDayListingSales + collectionData.opensea.sevenDayListingSales - collectionData.blur.oneDayListingSales - collectionData.opensea.oneDayListingSales) > 1.5)
         openSeaListingPrice = openSeaFloorPrice;
     openSeaListingPrice = openSeaListingPrice.toFixed(6) * 1;
     if (openSeaListingPrice == 0)
