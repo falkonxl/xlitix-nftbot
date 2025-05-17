@@ -292,13 +292,6 @@ async function submitBlurTraitBids(collectionData, bids, rarityRankPercentile, c
         logger("WARN", "SKIP BID", `{${rarityRankPercentile.from},${rarityRankPercentile.to}} Skipping bid for ${collectionData.slug} because more than 50% of the traits are being bid on.`);
         return;
     }
-    // get the total number of tokens with rarity from and to
-    let totalTokensWithRarity = biddingTraits.reduce((a, b) => a + b.blur.count, 0);
-    let totalTokensWithRarityToSupplyRatio = totalTokensWithRarity / collectionData.totalSupply;
-    if (totalTokensWithRarityToSupplyRatio > .5) {
-        logger("WARN", "SKIP BID", `{${rarityRankPercentile.from},${rarityRankPercentile.to}} Skipping bid for ${collectionData.slug} because more than 50% of the tokens are in rarity range.`);
-        return;
-    }
     let { bidAmount, projectedBidAmount, projectedListingPrice } = await getBlurTraitBidAmount(collectionData, rarityRankPercentile);
     let batchSize = 10;
     if (bidAmount == null || bidAmount == 0) {
