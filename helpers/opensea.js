@@ -146,7 +146,7 @@ async function submitOpenSeaTraitBids(collectionData, rarityRankPercentile, weth
     // get the total number of tokens with rarity from and to
     let totalTokensWithRarity = biddingTraits.reduce((a, b) => a + b.opensea.count, 0);
     let totalTokensWithRarityToSupplyRatio = totalTokensWithRarity / collectionData.totalSupply;
-    if (totalTokensWithRarityToSupplyRatio > .3) {
+    if (totalTokensWithRarityToSupplyRatio > .5) {
         logger("WARN", "OPENSEA SKIP BID", `{${rarityRankPercentile.from},${rarityRankPercentile.to}} Skipping bid for ${collectionData.slug} because more than 50% of the tokens are in rarity range.`);
         return;
     }
