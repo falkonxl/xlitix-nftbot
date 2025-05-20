@@ -268,7 +268,8 @@ async function submitBlurTraitBids(collectionData, bids, rarityRankPercentile, c
         .filter(a =>
             (((a.blur?.rarityPercentFloor <= rarityRankPercentile.to &&
                 a.blur?.rarityPercentFloor > rarityRankPercentile.from) ||
-                (a.blur?.thirtyDayAverageListingSalePriceToFloorPriceRatio > 1.1 &&
+                (a.blur?.thirtyDayAverageListingSalePriceToFloorPriceRatio > 1.5 &&
+                    a.blur?.thirtyDayListingSales > 1 &&
                     rarityRankPercentile.from >= 10)
             )
             &&

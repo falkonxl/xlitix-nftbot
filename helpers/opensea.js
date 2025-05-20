@@ -122,9 +122,8 @@ async function submitOpenSeaTraitBids(collectionData, rarityRankPercentile, weth
         .filter(a =>
         (((a.opensea?.rarityPercentFloor <= rarityRankPercentile.to &&
             a.opensea?.rarityPercentFloor > rarityRankPercentile.from) ||
-            (a.opensea?.thirtyDayAverageListingSalePriceToFloorPriceRatio > 1.1 &&
-                a.opensea?.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio < 1.0 &&
-                a.opensea?.thirtyDayAverageAcceptedBidSalePriceToFloorPriceRatio > 0 &&
+            (a.opensea?.thirtyDayAverageListingSalePriceToFloorPriceRatio > 1.5 &&
+                a.opensea?.thirtyDayListingSales > 1 &&
                 rarityRankPercentile.from >= 10)
         ) &&
             a.opensea?.rarityPercentFloor > 0 &&
