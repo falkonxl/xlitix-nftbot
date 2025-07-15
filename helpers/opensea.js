@@ -121,10 +121,7 @@ async function submitOpenSeaTraitBids(collectionData, rarityRankPercentile, weth
     let biddingTraits = collectionData.attributes
         .filter(a =>
         (((a.opensea?.rarityPercentFloor <= rarityRankPercentile.to &&
-            a.opensea?.rarityPercentFloor > rarityRankPercentile.from) ||
-            (a.opensea?.thirtyDayAverageListingSalePriceToFloorPriceRatio > 1.5 &&
-                a.opensea?.thirtyDayListingSales > 1 &&
-                rarityRankPercentile.from >= 10)
+            a.opensea?.rarityPercentFloor > rarityRankPercentile.from)
         ) &&
             a.opensea?.rarityPercentFloor > 0 &&
             a.opensea?.count > 0 &&
