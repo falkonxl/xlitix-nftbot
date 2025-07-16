@@ -49,36 +49,24 @@ async function submitOpenSeaListing(contractAddress, tokenId, listPrice) {
     }
 }
 
-async function getOpenSeaCollectionStats(slug) {
-    let retryCount = 0;
-    while (true) {
-        try {
-            await sleep(openSeaWaitTime);
-            return await openseaSDK.api.getCollectionStats(slug);
-        }
-        catch (err) {
-            if (retryCount++ > 3)
-                return null;
-            logger("ERROR", "OPENSEA ERROR", `COLLECTION ${slug} - ${err.message}`);
-            if (err.response?.statusCode == 599)
-                await sleep(err.response.headers['retry-after'] ? err.response.headers['retry-after'] * 1000 : 1500);
-        }
-    }
-}
-
 async function getOpenSeaCollection(slug) {
-    let retryCount = 0;
+    let retrycount = 0;
+    let payload = {
+        slug: slug
+    }
     while (true) {
-        try {
-            await sleep(openSeaWaitTime);
-            return await openseaSDK.api.getCollection(slug);
+        const response = await sendHttpRequest(`${process.env.RAPID_SHARE_OPENSEAAPI_URL}/collection`, "POST", headers, sleepinterval, 3, payload);
+        if (response == null || response.errors != null || response.error != null) {
+            retrycount++;
+            if (retrycount > 3)
+                return { httperror: true };
+            await sleep(sleepinterval);
+            continue;
         }
-        catch (err) {
-            if (retryCount++ > 3)
-                return null;
-            logger("ERROR", "OPENSEA ERROR", `COLLECTION ${slug} - ${err.message}`);
-            if (err.response?.statusCode == 599)
-                await sleep(err.response.headers['retry-after'] ? err.response.headers['retry-after'] * 1000 : 1500);
+        else {
+            if (response.data?.collectionBySlug == null)
+                return;
+            return response.data.collectionBySlug;
         }
     }
 }
@@ -286,4 +274,4 @@ async function getOpenSeaToken(contractAddress, tokenId) {
     }
 }
 
-export { getOpenSeaToken, getOpenSeaCollectionTraitOffers, submitOpenSeaListing, getOpenSeaCollectionStats, getOpenSeaCollectionOffers, getOpenSeaListings, submitOpenSeaOffer, getOpenSeaCollection, createOpenSeaCollectionOffer, submitOpenSeaCollectionOffer };
+export { getOpenSeaToken, getOpenSeaCollectionTraitOffers, submitOpenSeaListing, getOpenSeaCollectionOffers, getOpenSeaListings, submitOpenSeaOffer, getOpenSeaCollection, createOpenSeaCollectionOffer, submitOpenSeaCollectionOffer };
