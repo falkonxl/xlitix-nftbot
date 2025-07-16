@@ -49,6 +49,8 @@ jobs:
         with:
           inlineScript: |
             az extension add --name containerapp --upgrade
+
+            $env:AZURE_HTTP_TIMEOUT="180";  
             
             replicaset_containers=$(\
               az containerapp show --name xlitix-nftbot-4 \
