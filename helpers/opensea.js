@@ -1,7 +1,7 @@
 import { ethers } from "ethers";
 import { OpenSeaSDK, Chain } from "opensea-js";
 import logger from "./logger.js";
-import { getOpenSeaCollectionStats, getOpenSeaCollectionOffers, getOpenSeaListings, getOpenSeaCollectionTraitOffers, getOpenSeaCollection, createOpenSeaCollectionOffer, submitOpenSeaCollectionOffer } from "../apis/openseaapi.js";
+import { getOpenSeaCollectionOffers, getOpenSeaListings, getOpenSeaCollection, createOpenSeaCollectionOffer, submitOpenSeaCollectionOffer } from "../apis/openseaapi.js";
 import ERC20ABI from "../tokens/ERC20ABI.js";
 
 // This example provider won't let you make transactions, only read-only calls:
@@ -48,10 +48,9 @@ async function getOpenSeaTraitBidAmount(collectionData, traitRarityPercentile) {
         return emptyReturnOject;
     }
     let bidAmount = 0;
-    let collectionOpenSeaData = await getOpenSeaCollectionStats(collectionData.slug);
-    if (collectionOpenSeaData?.total?.floor_price == null || collectionOpenSeaData?.total?.floor_price * 1 <= 0)
+    if (collection?.floorPrice?.pricePerItem?.native?.unit == null || collection?.floorPrice?.pricePerItem?.native?.symbol == null || collection?.floorPrice?.pricePerItem?.native?.value * 1 <= 0 || collection?.floorPrice?.pricePerItem?.native?.symbol != "ETH")
         return emptyReturnOject;
-    let openSeaFloorPrice = collectionOpenSeaData?.total?.floor_price * 1;
+    let openSeaFloorPrice = collection?.floorPrice?.pricePerItem?.native?.unit * 1;
     let openseaCollectionOffers = await getOpenSeaCollectionOffers(collectionData.slug);
     if (openseaCollectionOffers == null || openseaCollectionOffers.offers == null || openseaCollectionOffers.offers.length == 0)
         return emptyReturnOject;
@@ -202,11 +201,11 @@ async function getOpenSeaListingPrice(collectionData, blurRarityRank, openSeaTok
         return;
     if (collectionData.opensea.sevenDayListingSales == 0)
         return;
-    let collectionOpenSeaData = await getOpenSeaCollectionStats(collectionData.slug);
-    if (collectionOpenSeaData?.total?.floor_price == null || collectionOpenSeaData?.total?.floor_price * 1 <= 0)
-        return;
-    let openSeaListingPrice = collectionOpenSeaData?.total?.floor_price * 1;
-    var openSeaFloorPrice = collectionOpenSeaData?.total?.floor_price * 1;
+    let collectionOpenSeaData = await getOpenSeaCollection(collectionData.slug);
+    if (collectionOpenSeaData?.floorPrice?.pricePerItem?.native?.unit == null || collectionOpenSeaData?.floorPrice?.pricePerItem?.native?.symbol == null || collectionOpenSeaData?.floorPrice?.pricePerItem?.native?.value * 1 <= 0 || collectionOpenSeaData?.floorPrice?.pricePerItem?.native?.symbol != "ETH")
+        return emptyReturnOject;
+    let openSeaListingPrice = collectionOpenSeaData?.floorPrice?.pricePerItem?.native?.unit * 1;
+    var openSeaFloorPrice = collectionOpenSeaData?.floorPrice?.pricePerItem?.native?.value * 1;
     let rarityMultiplier = 1;
     let rarityRankPercentile = rarityRank / collectionData.totalSupply;
     if (collectionData?.opensea?.sevenDayMedianDailyAverageFloorPrice > 0)
